@@ -247,6 +247,12 @@ export class PoliceSystem {
 
     // Police cars: pursuit steering, building collisions, ramming.
     for (const c of this.cars) {
+      if (c.hold) {
+        // Staged for a screenshot: parked in frame, lightbar flashing, not moving.
+        c.model.group.position.set(c.x, 0, c.z);
+        c.model.group.rotation.y = c.heading;
+        continue;
+      }
       c.ramCooldown = Math.max(0, c.ramCooldown - dt);
       const want = Math.atan2(px - c.x, pz - c.z);
       const targetSpeed = stars > 0 ? CONFIG.police.chaseSpeed : 14;

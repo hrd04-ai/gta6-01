@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { CONFIG, PLACES } from './config.js';
-import { createRng, clamp, angleDiff } from './random.js';
+import { clamp, angleDiff } from './random.js';
 import { buildCity } from './city.js';
 import { TrafficSystem, PlayerCar, createCarModel } from './vehicles.js';
 import { PedestrianSystem } from './pedestrians.js';
@@ -74,8 +74,13 @@ sun.shadow.camera.far = 600;
 sun.shadow.bias = -0.0004;
 scene.add(sun);
 scene.add(sun.target);
-const hemi = new THREE.HemisphereLight(0xffd9a0, 0x8a6a4a, 0.75);
+const hemi = new THREE.HemisphereLight(0xffd9a0, 0x8a6a4a, 0.9);
 scene.add(hemi);
+// A soft warm fill from the south-east, so the sides the low sun leaves in
+// shadow still read — the car's paint, the building faces, the street.
+const fill = new THREE.DirectionalLight(0xffd9a8, 0.55);
+fill.position.set(120, 90, 160);
+scene.add(fill);
 
 // ---------------------------------------------------------------------------
 // World systems
@@ -137,7 +142,8 @@ function fireTracer(from, to) {
 // ---------------------------------------------------------------------------
 const input = {
   forward: false, back: false, left: false, right: false,
-  run: false, handbrake: false, punch: false, shoot: false, reload: false,
+  run: false, handbrake: false, punch: false, shoot: false, shootQueued: false,
+  reload: false,
 };
 const keys = {};
 let camYaw = Math.PI;
@@ -179,7 +185,10 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   dragging = true;
   dragMoved = 0;
   lastMouse = { x: e.clientX, y: e.clientY };
-  if (state === 'playing' && player.onFoot && player.armed) input.shoot = true;
+  if (state === 'playing' && player.onFoot && player.armed) {
+    input.shoot = true;
+    input.shootQueued = true;
+  }
 });
 window.addEventListener('pointermove', (e) => {
   if (!dragging) return;
@@ -539,8 +548,18 @@ function cameraHeading() {
 
 function updateCamera(dt) {
   if (shotMode && shotMode.camera) {
-    camera.position.set(shotMode.camera.pos.x, shotMode.camera.pos.y, shotMode.camera.pos.z);
-    camera.lookAt(shotMode.camera.look.x, shotMode.camera.look.y, shotMode.camera.look.z);
+    const cam = shotMode.camera;
+    if (cam.follow) {
+      // A chase camera that rides with the car, so a moving shot keeps its
+      // framing while the car drives away from a fixed pose.
+      const f = player.inCar ? player.inCar : player;
+      const fx = Math.sin(f.heading), fz = Math.cos(f.heading);
+      camera.position.set(f.x - fx * cam.back, cam.height, f.z - fz * cam.back);
+      camera.lookAt(f.x + fx * cam.lookAhead, cam.lookHeight, f.z + fz * cam.lookAhead);
+      return;
+    }
+    camera.position.set(cam.pos.x, cam.pos.y, cam.pos.z);
+    camera.lookAt(cam.look.x, cam.look.y, cam.look.z);
     return;
   }
   const focus = player.inCar
@@ -738,17 +757,18 @@ if (SHOT) {
   suppressToasts = true;
   player.invulnTimer = 9999; // the shot must not end in a respawn
   const game = {
-    player, playerCar, traffic, peds, police, missions, effects, hud, sound,
+    scene, player, playerCar, traffic, peds, police, missions, effects, hud, sound,
     worldCallbacks: world,
     get cash() { return cash; },
     set cash(v) { cash = v; hud.setCash(cash); },
     get clockMinutes() { return clockMinutes; },
     set clockMinutes(v) { clockMinutes = v; },
     get time() { return time; },
+    save: () => doSave(),
     suppressToasts: true,
   };
   shotMode = setupShot(game, SHOT);
-  if (shotMode.camera) {
+  if (shotMode.camera && shotMode.camera.pos) {
     camYaw = Math.atan2(
       shotMode.camera.pos.x - shotMode.camera.look.x,
       shotMode.camera.pos.z - shotMode.camera.look.z,
@@ -759,5 +779,12 @@ if (SHOT) {
   hud.showTitle();
 }
 
-window.__game = { player, playerCar, traffic, peds, police, missions, effects, hud, sound, city };
+window.__game = {
+  player, playerCar, traffic, peds, police, missions, effects, hud, sound, city,
+  get cash() { return cash; },
+  set cash(v) { cash = v; hud.setCash(cash); },
+  get time() { return time; },
+  get clockMinutes() { return clockMinutes; },
+  save: () => doSave(),
+};
 animate();

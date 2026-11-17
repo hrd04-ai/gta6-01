@@ -131,9 +131,15 @@ export class Player {
       this.punchTimer = 0.28;
       world.onPunch?.(this);
     }
+    // Edge-triggered: a press is one punch, even if the frame that reads it
+    // comes late.
+    input.punch = false;
 
     // Shooting: hitscan against cops, guards and peds in a narrow cone.
-    if (input.shoot && this.armed && this.shootCooldown <= 0 && this.reloadTimer <= 0) {
+    // A queued click fires on the next frame even if the button was already
+    // released — at low frame rates a down/up pair can otherwise land
+    // between two frames and be swallowed entirely.
+    if ((input.shoot || input.shootQueued) && this.armed && this.shootCooldown <= 0 && this.reloadTimer <= 0) {
       if (this.ammo <= 0) {
         this.reloadTimer = cfg.reloadSeconds;
         world.onReloadStart?.();
@@ -142,6 +148,9 @@ export class Player {
         this.ammo -= 1;
         world.onShoot?.(this);
       }
+      input.shootQueued = false;
+    } else if (!this.armed) {
+      input.shootQueued = false;
     }
     if (input.reload && this.ammo < cfg.magSize && this.reloadTimer <= 0) {
       this.reloadTimer = cfg.reloadSeconds;

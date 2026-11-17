@@ -74,7 +74,7 @@ function paintGroundTexture(rng) {
   }
 
   // Roads: asphalt strips along every line.
-  g.fillStyle = '#3d3a38';
+  g.fillStyle = '#46413d';
   for (const line of LINES) {
     g.fillRect(0, toPx(line - ROAD / 2), S, ROAD * scale);
     g.fillRect(toPx(line - ROAD / 2), 0, ROAD * scale, S);
@@ -217,7 +217,7 @@ function makeTrafficLight() {
   const mkLamp = (color, y) => {
     const m = new THREE.Mesh(
       new THREE.CircleGeometry(0.16, 10),
-      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.15 }),
+      new THREE.MeshStandardMaterial({ color: 0x111111, emissive: color, emissiveIntensity: 0.15 }),
     );
     m.position.set(0, y, 0.26);
     group.add(m);
@@ -260,16 +260,16 @@ function addBuilding(scene, colliders, facadeTex, cx, cz, w, d, h, color, glass 
   const group = new THREE.Group();
   // Clone the facade per building: each tower repeats the window grid to
   // its own size, and the shared texture must never be mutated in place.
-  const tex = glass ? null : facadeTex.clone();
-  if (tex) {
-    tex.needsUpdate = true;
-    tex.repeat.set(Math.max(1, Math.round(w / 14)), Math.max(1, Math.round(h / 22)));
-  }
+  // Glass towers get the same grid — a curtain wall with mullions, not a
+  // blank slab.
+  const tex = facadeTex.clone();
+  tex.needsUpdate = true;
+  tex.repeat.set(Math.max(1, Math.round(w / 14)), Math.max(1, Math.round(h / 22)));
   const mat = new THREE.MeshStandardMaterial({
     color,
     map: tex,
-    roughness: glass ? 0.15 : 0.85,
-    metalness: glass ? 0.55 : 0.05,
+    roughness: glass ? 0.3 : 0.85,
+    metalness: glass ? 0.35 : 0.05,
   });
   if (glass) {
     mat.envMapIntensity = 0.8;
@@ -522,13 +522,12 @@ export function buildCity(scene, seed = CONFIG.seed) {
         continue;
       }
       if (kind === 'bank') {
-        const tower = addBuilding(scene, colliders, glassTex, cx, cz, 24, 24, 58, pick(rng, CONFIG.palette.glass), true);
-        tower.children[0].material.map = null;
+        addBuilding(scene, colliders, glassTex, cx, cz, 24, 24, 58, pick(rng, CONFIG.palette.glass), true);
         const sign = new THREE.Mesh(
           new THREE.BoxGeometry(16, 3, 0.6),
           new THREE.MeshStandardMaterial({ color: 0x1d3a5f, emissive: 0x2a6ea5, emissiveIntensity: 0.7 }),
         );
-        sign.position.set(cx, 52, cz - 12.4);
+        sign.position.set(cx, 52, cz + 12.4);
         scene.add(sign);
         continue;
       }
@@ -645,13 +644,13 @@ export function buildCity(scene, seed = CONFIG.seed) {
       const tl = makeTrafficLight();
       tl.group.position.set(ax - 7.2, 0, az - 7.2);
       tl.group.rotation.y = Math.PI / 4;
-      scene.add(tl);
+      scene.add(tl.group);
       trafficLights.push({ ...tl, x: ax, z: az });
     }
   }
 
   // Traffic lights cycle: NS green for 12 s, then EW green for 12 s.
-  let lightPhase = 0;
+  let lightPhase = -1; // -1 forces the first update to apply phase 0.
   const updateTrafficLights = (t) => {
     const phase = trafficPhase(t);
     if (phase === lightPhase) return;

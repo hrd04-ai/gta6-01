@@ -13,7 +13,7 @@ import { resolveCircleVsBuildings, trafficPhase } from './city.js';
 // ---------------------------------------------------------------------------
 export function createCarModel(kind, color) {
   const group = new THREE.Group();
-  const paint = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.5 });
+  const paint = new THREE.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.12 });
   const glassMat = new THREE.MeshStandardMaterial({ color: 0x1a2733, roughness: 0.1, metalness: 0.7 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x1c1e20, roughness: 0.8 });
 

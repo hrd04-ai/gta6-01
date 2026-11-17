@@ -3,7 +3,9 @@
 // no files — just points, colour and velocity.
 
 import * as THREE from 'three';
-import { range } from './random.js';
+
+// Local jitter helper: effects are visual noise, they need no seed.
+const rr = (min, max) => min + Math.random() * (max - min);
 
 const MAX_PARTICLES = 700;
 
@@ -53,7 +55,7 @@ export class Effects {
     const c = new THREE.Color(color);
     for (let n = 0; n < count; n++) {
       const a = Math.random() * Math.PI * 2;
-      const e = range(0, -0.4, 1);
+      const e = rr(-0.4, 1);
       const s = speed * (0.4 + Math.random() * 0.6);
       this.spawn(
         x, y, z,
@@ -72,8 +74,8 @@ export class Effects {
   tireSmoke(x, z) {
     for (let n = 0; n < 3; n++) {
       this.spawn(
-        x + range(0, -0.3, 0.3), 0.25, z + range(0, -0.3, 0.3),
-        range(0, -0.6, 0.6), range(0, 0.8, 1.6), range(0, -0.6, 0.6),
+        x + rr(-0.3, 0.3), 0.25, z + rr(-0.3, 0.3),
+        rr(-0.6, 0.6), rr(0.8, 1.6), rr(-0.6, 0.6),
         0.9, 0.55, 0.55, 0.55, 1.2,
       );
     }

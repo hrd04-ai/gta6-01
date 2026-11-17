@@ -79,7 +79,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1210; col
 @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
 /* Crosshair. */
-#crosshair { position: fixed; left: 50%; top: 50%; width: 0; height: 0; display: none; }
+#crosshair { position: fixed; left: 50%; top: 50%; width: 0; height: 0; display: none; pointer-events: none; }
 #crosshair i { position: absolute; background: var(--ink); box-shadow: 0 0 3px #000; }
 #crosshair i:nth-child(1) { left: -1px; top: -16px; width: 2px; height: 9px; }
 #crosshair i:nth-child(2) { left: -1px; top: 7px; width: 2px; height: 9px; }

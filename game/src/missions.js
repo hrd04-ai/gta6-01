@@ -200,8 +200,9 @@ export class MissionSystem {
   spawnGuards() {
     this.clearGuards();
     const b = PLACES.bank;
+    // On the bank's south plaza, in the open — never inside the tower.
     const spots = [
-      { x: b.x - 8, z: b.z - 6 }, { x: b.x + 8, z: b.z - 4 }, { x: b.x, z: b.z + 8 },
+      { x: b.x - 8, z: b.z + 14 }, { x: b.x + 8, z: b.z + 12 }, { x: b.x, z: b.z + 16 },
     ];
     for (const s of spots) {
       const model = createGuardModel();
