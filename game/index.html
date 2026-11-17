@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palmera Bay: Sunset Heat</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div id="topBar">
+    <div id="stars"></div>
+    <div id="cash">$150</div>
+    <div id="healthWrap">
+      <div id="healthBar"><div id="healthFill"></div></div>
+      <span id="healthText">100</span>
+    </div>
+  </div>
+  <div id="clock">17:40</div>
+  <div id="objective">
+    <div id="objectiveTitle">Palmera Bay</div>
+    <div id="objectiveText">Press Enter to start the story.</div>
+    <div id="objectiveMeta"></div>
+  </div>
+  <div id="minimapWrap"><canvas id="minimap" width="180" height="180"></canvas></div>
+  <div id="speed"><span id="speedNum">0</span><span id="speedUnit">km/h</span></div>
+  <div id="weapon">Fists</div>
+  <div id="toasts"></div>
+  <div id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+  <div id="damageFlash"></div>
+  <div id="storyTag"></div>
+</div>
+
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1>PALMERA BAY</h1>
+    <h2>SUNSET HEAT</h2>
+    <p class="tagline">One courier. One city. Five jobs between him and the biggest score Palmera Bay has ever seen.</p>
+    <div class="btn-row">
+      <button id="btnNew" class="btn primary" type="button">New Game</button>
+      <button id="btnContinue" class="btn" type="button">Continue</button>
+    </div>
+    <div id="helpPanel">
+      <h3>How to play</h3>
+      <p><b>WASD</b> move / drive &nbsp;·&nbsp; <b>Shift</b> sprint &nbsp;·&nbsp; <b>Mouse</b> drag to look, wheel to zoom</p>
+      <p><b>E</b> steal / enter / exit a car &nbsp;·&nbsp; <b>F</b> punch &nbsp;·&nbsp; <b>Click</b> shoot (once you have the pistol)</p>
+      <p><b>Space</b> handbrake &nbsp;·&nbsp; <b>R</b> reload &nbsp;·&nbsp; <b>M</b> mute &nbsp;·&nbsp; <b>Esc</b> pause</p>
+      <p>Steal cars, run Mara's jobs, watch the stars. Lose the heat at Spray &amp; Save — for a price.</p>
+    </div>
+    <p class="foot">An original game. No part of it belongs to any other game, studio or city.</p>
+  </div>
+</div>
+
+<div id="pauseMenu" class="overlay" style="display:none">
+  <div class="panel">
+    <h2>PAUSED</h2>
+    <div class="btn-row">
+      <button id="btnResume" class="btn primary" type="button">Resume</button>
+      <button id="btnSave" class="btn" type="button">Save Game</button>
+    </div>
+    <div class="btn-row">
+      <button id="btnRestart" class="btn" type="button">Restart Mission</button>
+      <button id="btnMute" class="btn" type="button">Mute / Unmute</button>
+      <button id="btnQuit" class="btn" type="button">Quit to Title</button>
+    </div>
+  </div>
+</div>
+
+<div id="wasted" class="overlay" style="display:none">
+  <div class="panel dead">
+    <h2>WASTED</h2>
+    <p>Rico wakes up at St. Coral Hospital. The story continues.</p>
+  </div>
+</div>
+
+<div id="busted" class="overlay" style="display:none">
+  <div class="panel dead">
+    <h2>BUSTED</h2>
+    <p>The PBPD took their cut. Rico walks out of the station and back to work.</p>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.min.js"
+  }
+}
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+/* Palmera Bay: Sunset Heat — HUD and menu styling. Sunset palette:
+   deep ink, warm orange, gold, sea teal. Everything over the canvas. */
+:root {
+  --ink: #fff6e8;
+  --muted: #d8c8b0;
+  --panel: rgba(16, 20, 26, 0.86);
+  --hairline: rgba(255, 246, 232, 0.18);
+  --accent: #ff7a3d;
+  --gold: #ffc23c;
+  --danger: #ff3b30;
+  --good: #6fbf5a;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-readout: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1210; color: var(--ink); font-family: var(--font-ui); }
+#game, #game canvas { position: fixed; inset: 0; display: block; }
+#hud { position: fixed; inset: 0; pointer-events: none; user-select: none; z-index: 5; }
+[hidden] { display: none !important; }
+
+/* Top bar: stars, cash, health. */
+#topBar {
+  position: absolute; top: 14px; left: 16px; display: flex; gap: 14px; align-items: center;
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 8px 14px;
+}
+#stars { font-size: 22px; letter-spacing: 2px; color: #5a5348; min-width: 118px; }
+#stars span.on { color: var(--gold); text-shadow: 0 0 8px rgba(255, 194, 60, 0.8); }
+#stars.hot span.on { color: var(--danger); text-shadow: 0 0 8px rgba(255, 59, 48, 0.9); animation: pulse 0.7s infinite alternate; }
+@keyframes pulse { from { opacity: 1; } to { opacity: 0.55; } }
+#cash { font-family: var(--font-readout); font-size: 20px; font-weight: 700; color: var(--gold); }
+#healthWrap { display: flex; align-items: center; gap: 8px; }
+#healthBar { width: 130px; height: 12px; background: rgba(255, 255, 255, 0.14); border-radius: 6px; overflow: hidden; }
+#healthFill { height: 100%; width: 100%; background: var(--good); transition: width 0.2s; }
+#healthText { font-family: var(--font-readout); font-size: 14px; color: var(--muted); }
+
+#clock {
+  position: absolute; top: 14px; right: 16px; font-family: var(--font-readout); font-size: 16px;
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 8px 12px; color: var(--muted);
+}
+
+/* Mission objective, top centre. */
+#objective {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px;
+  padding: 8px 18px; text-align: center; max-width: 480px;
+}
+#objectiveTitle { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+#objectiveText { font-size: 16px; margin-top: 2px; }
+#objectiveMeta { font-family: var(--font-readout); font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+/* Minimap, bottom left. */
+#minimapWrap {
+  position: absolute; left: 16px; bottom: 16px; border: 2px solid var(--hairline);
+  border-radius: 50%; overflow: hidden; background: rgba(12, 18, 24, 0.88);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+#minimap { display: block; width: 180px; height: 180px; }
+
+/* Speed and weapon, bottom right. */
+#speed {
+  position: absolute; right: 20px; bottom: 56px; text-align: right; display: none;
+  font-family: var(--font-readout); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+#speedNum { font-size: 42px; font-weight: 700; }
+#speedUnit { font-size: 14px; color: var(--muted); margin-left: 6px; }
+#weapon {
+  position: absolute; right: 20px; bottom: 18px; font-family: var(--font-readout); font-size: 15px;
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: 6px; padding: 6px 10px; color: var(--muted);
+}
+
+/* Toasts, above the minimap. */
+#toasts { position: absolute; left: 210px; bottom: 24px; max-width: 420px; display: flex; flex-direction: column; gap: 6px; }
+.toast {
+  background: var(--panel); border: 1px solid var(--hairline); border-left: 3px solid var(--gold);
+  border-radius: 6px; padding: 8px 12px; font-size: 14px; line-height: 1.35;
+  animation: toastIn 0.25s ease-out;
+}
+.toast.fade { opacity: 0; transition: opacity 0.6s; }
+@keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Crosshair. */
+#crosshair { position: fixed; left: 50%; top: 50%; width: 0; height: 0; display: none; }
+#crosshair i { position: absolute; background: var(--ink); box-shadow: 0 0 3px #000; }
+#crosshair i:nth-child(1) { left: -1px; top: -16px; width: 2px; height: 9px; }
+#crosshair i:nth-child(2) { left: -1px; top: 7px; width: 2px; height: 9px; }
+#crosshair i:nth-child(3) { top: -1px; left: -16px; height: 2px; width: 9px; }
+#crosshair i:nth-child(4) { top: -1px; left: 7px; height: 2px; width: 9px; }
+#crosshair b { position: absolute; left: -1px; top: -1px; width: 2px; height: 2px; background: var(--ink); }
+
+/* Damage flash: a red vignette that fires on hurt. */
+#damageFlash { position: fixed; inset: 0; pointer-events: none; opacity: 0; }
+#damageFlash.hit {
+  opacity: 1;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(255, 30, 20, 0.45) 100%);
+  animation: flashOut 0.5s ease-out forwards;
+}
+@keyframes flashOut { from { opacity: 1; } to { opacity: 0; } }
+
+#storyTag { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+
+/* Overlays: title, pause, wasted, busted. */
+.overlay {
+  position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, rgba(20, 10, 8, 0.55), rgba(20, 10, 8, 0.82));
+  pointer-events: auto;
+}
+.panel {
+  background: var(--panel); border: 1px solid var(--hairline); border-radius: 14px;
+  padding: 30px 38px; max-width: 620px; text-align: center;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+.panel h1 {
+  margin: 0; font-size: 52px; letter-spacing: 6px; color: var(--ink);
+  text-shadow: 0 0 24px rgba(255, 122, 61, 0.55);
+}
+.panel h2 { margin: 2px 0 0; font-size: 26px; letter-spacing: 10px; color: var(--accent); }
+.panel .tagline { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 14px 0 20px; }
+.btn-row { display: flex; gap: 10px; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
+.btn {
+  font-family: var(--font-ui); font-size: 16px; font-weight: 600; cursor: pointer;
+  background: rgba(255, 246, 232, 0.1); color: var(--ink); border: 1px solid var(--hairline);
+  border-radius: 8px; padding: 10px 22px;
+}
+.btn:hover { background: rgba(255, 246, 232, 0.2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: #ff8a52; }
+#helpPanel { text-align: left; margin-top: 18px; border-top: 1px solid var(--hairline); padding-top: 12px; }
+#helpPanel h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); }
+#helpPanel p { margin: 5px 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+#helpPanel b { color: var(--ink); }
+.foot { font-size: 12px; color: var(--muted); margin: 16px 0 0; }
+.panel.dead h2 { font-size: 64px; color: var(--danger); letter-spacing: 8px; }
+.panel.dead p { color: var(--muted); font-size: 15px; }
+
+@media (max-width: 720px) {
+  #objective { max-width: 300px; }
+  #minimap { width: 120px; height: 120px; }
+  #toasts { left: 150px; max-width: 260px; }
+  .panel h1 { font-size: 36px; }
+}
