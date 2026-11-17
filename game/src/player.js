@@ -1,187 +1,169 @@
-// Rico Vega on foot: third-person movement that answers to the camera,
-// a punch for close work, a pistol for louder problems, and the E key that
-// turns any car on the street into his car.
-
+// Rico Vega on foot: camera-relative movement, sprint, punch, pistol with a
+// 12-round magazine, and getting in and out of cars. The player is a simple
+// articulated figure built from boxes so the game needs no external models.
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
-import { clamp, angleDiff } from './random.js';
-import { resolveCircleVsBuildings } from './city.js';
-import { createPlayerModel } from './pedestrians.js';
+import { CFG } from './config.js';
+import { collideWorld } from './vehicles.js';
+
+function buildRico() {
+  const group = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({ color: 0xc98d5f, roughness: 0.8 });
+  const jacket = new THREE.MeshStandardMaterial({ color: 0xd84b2e, roughness: 0.75 });
+  const jeans = new THREE.MeshStandardMaterial({ color: 0x2a3a5a, roughness: 0.9 });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), skin);
+  head.position.y = 1.62;
+  group.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.33, 12, 8, 0, Math.PI * 2, 0, 1.2), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 }));
+  hair.position.y = 1.66;
+  group.add(hair);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.78, 0.38), jacket);
+  torso.position.y = 1.05;
+  group.add(torso);
+  const legGeo = new THREE.BoxGeometry(0.26, 0.72, 0.28);
+  const legL = new THREE.Mesh(legGeo, jeans);
+  legL.position.set(0.17, 0.36, 0);
+  group.add(legL);
+  const legR = new THREE.Mesh(legGeo, jeans);
+  legR.position.set(-0.17, 0.36, 0);
+  group.add(legR);
+  const armGeo = new THREE.BoxGeometry(0.2, 0.68, 0.22);
+  const armL = new THREE.Mesh(armGeo, jacket);
+  armL.position.set(0.44, 1.05, 0);
+  group.add(armL);
+  const armR = new THREE.Mesh(armGeo, jacket);
+  armR.position.set(-0.44, 1.05, 0);
+  group.add(armR);
+  // Pistol in the right hand, visible when armed.
+  const gun = new THREE.Group();
+  const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.42), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.6 }));
+  gun.add(gunBody);
+  gun.position.set(-0.44, 0.72, 0.28);
+  gun.visible = false;
+  group.add(gun);
+  group.userData = { legL, legR, armL, armR, gun };
+  return group;
+}
 
 export class Player {
   constructor(scene) {
-    this.model = createPlayerModel();
-    scene.add(this.model.group);
-    this.x = 0; this.z = 0;
-    this.heading = 0;
-    this.vx = 0; this.vz = 0;
-    this.health = CONFIG.player.health;
-    this.maxHealth = CONFIG.player.health;
-    this.armed = false; // pistol unlocked by mission 1
-    this.ammo = CONFIG.player.magSize;
+    this.scene = scene;
+    this.mesh = buildRico();
+    scene.add(this.mesh);
+    this.pos = new THREE.Vector3(-22, 0, 10);
+    this.heading = Math.PI / 2;
+    this.speed = 0;
+    this.health = 100;
+    this.inCar = null;
+    this.armed = false;
+    this.ammo = CFG.pistolMag;
     this.reloadTimer = 0;
     this.punchTimer = 0;
-    this.punchCooldown = 0;
-    this.shootCooldown = 0;
-    this.onFoot = true;
-    this.inCar = null; // PlayerCar when driving
+    this.punchQueued = false;
     this.walkPhase = 0;
-    this.dead = false;
-    this.invulnTimer = 0;
+    this.lastSafePos = this.pos.clone();
   }
 
-  place(x, z, heading) {
-    this.x = x; this.z = z; this.heading = heading;
-    this.vx = 0; this.vz = 0;
-    this.model.group.position.set(x, 0, z);
-    this.model.group.rotation.y = heading;
+  reset(spawn) {
+    this.pos.copy(spawn);
+    this.heading = Math.PI / 2;
+    this.health = 100;
+    this.inCar = null;
+    this.armed = false;
+    this.ammo = CFG.pistolMag;
+    this.mesh.position.copy(this.pos);
+    this.mesh.visible = true;
   }
 
-  get speed() {
-    return Math.hypot(this.vx, this.vz);
+  aimDirection(cameraYaw) {
+    return cameraYaw;
   }
 
-  hurt(amount, world) {
-    if (this.invulnTimer > 0 || this.dead) return;
-    this.health -= amount;
-    this.invulnTimer = 0.4;
-    world.onPlayerHurt?.();
-    if (this.health <= 0) {
-      this.health = 0;
-      this.dead = true;
-      world.onPlayerWasted?.();
+  update(dt, input, cameraYaw, colliders, effects) {
+    if (this.inCar) return;
+    if (this.punchTimer > 0) this.punchTimer -= dt;
+    if (this.reloadTimer > 0) {
+      this.reloadTimer -= dt;
+      if (this.reloadTimer <= 0) this.ammo = CFG.pistolMag;
     }
+    // Camera-relative movement.
+    const fwd = { x: Math.sin(cameraYaw), z: Math.cos(cameraYaw) };
+    const right = { x: Math.cos(cameraYaw), z: -Math.sin(cameraYaw) };
+    let mx = 0;
+    let mz = 0;
+    if (input.up) { mx += fwd.x; mz += fwd.z; }
+    if (input.down) { mx -= fwd.x; mz -= fwd.z; }
+    if (input.left) { mx -= right.x; mz -= right.z; }
+    if (input.right) { mx += right.x; mz += right.z; }
+    const len = Math.hypot(mx, mz);
+    const sprint = input.sprint && len > 0;
+    const target = len > 0 ? (sprint ? CFG.sprintSpeed : CFG.walkSpeed) : 0;
+    this.speed += (target - this.speed) * Math.min(1, dt * 10);
+    if (len > 0) {
+      mx /= len;
+      mz /= len;
+      this.heading = Math.atan2(-mz, mx);
+      const nx = this.pos.x + mx * this.speed * dt;
+      const nz = this.pos.z + mz * this.speed * dt;
+      const hit = collideWorld(nx, nz, 0.7, colliders);
+      if (!hit) {
+        this.pos.x = THREE.MathUtils.clamp(nx, -CFG.worldHalf, CFG.harborEdge - 2);
+        this.pos.z = THREE.MathUtils.clamp(nz, -CFG.worldHalf, CFG.bayEdge - 2);
+        this.lastSafePos.copy(this.pos);
+      }
+      this.walkPhase += dt * this.speed * 1.9;
+    }
+    this.mesh.position.copy(this.pos);
+    this.mesh.rotation.y = -this.heading + Math.PI / 2;
+    const swing = Math.sin(this.walkPhase) * Math.min(1, this.speed / CFG.walkSpeed) * 0.55;
+    const u = this.mesh.userData;
+    u.legL.rotation.x = swing;
+    u.legR.rotation.x = -swing;
+    u.armL.rotation.x = this.armed ? -1.2 : -swing * 0.7;
+    u.armR.rotation.x = this.punchTimer > 0.25 ? -1.9 : swing * 0.7;
+    u.gun.visible = this.armed;
+    if (this.punchQueued && this.punchTimer <= 0) {
+      this.punchQueued = false;
+      this.punchTimer = 0.45;
+      return 'punch';
+    }
+    return null;
+  }
+
+  queuePunch() {
+    if (!this.inCar) this.punchQueued = true;
+  }
+
+  // Hitscan shot toward the camera aim. Returns the hit point or null.
+  shoot(camera, targets) {
+    if (this.inCar || this.armed === false || this.reloadTimer > 0 || this.ammo <= 0) return null;
+    this.ammo--;
+    const origin = new THREE.Vector3(this.pos.x, 1.45, this.pos.z);
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    dir.y = 0;
+    dir.normalize();
+    let best = null;
+    let bestD = CFG.pistolRange;
+    for (const t of targets) {
+      if (t.dead || t.down) continue;
+      const dx = t.pos.x - origin.x;
+      const dz = t.pos.z - origin.z;
+      const along = dx * dir.x + dz * dir.z;
+      if (along < 0 || along > bestD) continue;
+      const side = Math.abs(dx * -dir.z + dz * dir.x);
+      if (side < 1.6) { bestD = along; best = t; }
+    }
+    const hitPoint = origin.clone().add(dir.clone().multiplyScalar(best ? bestD : CFG.pistolRange));
+    return { target: best, point: hitPoint };
+  }
+
+  takeDamage(amount, effects) {
+    this.health = Math.max(0, this.health - amount);
+    effects.addShake(0.6);
+    return this.health <= 0;
   }
 
   heal(amount) {
-    this.health = Math.min(this.maxHealth, this.health + amount);
-  }
-
-  // Returns the world position of the muzzle, for tracer effects.
-  muzzlePosition() {
-    const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
-    return { x: this.x + fx * 0.7, y: 1.35, z: this.z + fz * 0.7 };
-  }
-
-  update(dt, input, cameraHeading, world) {
-    if (!this.onFoot || this.dead) return;
-    const cfg = CONFIG.player;
-    this.invulnTimer = Math.max(0, this.invulnTimer - dt);
-    this.punchCooldown = Math.max(0, this.punchCooldown - dt);
-    this.shootCooldown = Math.max(0, this.shootCooldown - dt);
-    this.reloadTimer = Math.max(0, this.reloadTimer - dt);
-    if (this.reloadTimer === 0 && this.ammo === 0) {
-      this.ammo = cfg.magSize;
-      world.onReloaded?.();
-    }
-
-    // Movement is camera-relative: W runs away from the camera (along the
-    // view direction), A/D strafe across it.
-    let mx = 0, mz = 0;
-    if (input.forward) { mx += Math.sin(cameraHeading); mz += Math.cos(cameraHeading); }
-    if (input.back) { mx -= Math.sin(cameraHeading); mz -= Math.cos(cameraHeading); }
-    if (input.left) { mx += Math.cos(cameraHeading); mz -= Math.sin(cameraHeading); }
-    if (input.right) { mx -= Math.cos(cameraHeading); mz += Math.sin(cameraHeading); }
-    const mLen = Math.hypot(mx, mz);
-    const top = input.run ? cfg.runSpeed : cfg.walkSpeed;
-    if (mLen > 0) {
-      mx /= mLen; mz /= mLen;
-      this.vx += mx * cfg.accel * dt;
-      this.vz += mz * cfg.accel * dt;
-      const sp = Math.hypot(this.vx, this.vz);
-      if (sp > top) {
-        this.vx = (this.vx / sp) * top;
-        this.vz = (this.vz / sp) * top;
-      }
-      const wantHeading = Math.atan2(this.vx, this.vz);
-      this.heading += clamp(angleDiff(this.heading, wantHeading), -7 * dt, 7 * dt);
-    } else {
-      const sp = Math.hypot(this.vx, this.vz);
-      const dec = cfg.friction * dt;
-      if (sp <= dec) { this.vx = 0; this.vz = 0; }
-      else { this.vx -= (this.vx / sp) * dec; this.vz -= (this.vz / sp) * dec; }
-    }
-
-    let nx = this.x + this.vx * dt;
-    let nz = this.z + this.vz * dt;
-    const resolved = resolveCircleVsBuildings(nx, nz, cfg.radius, world.colliders);
-    if (resolved.x !== nx || resolved.z !== nz) {
-      // Slide along the wall instead of sticking to it.
-      this.vx *= 0.4; this.vz *= 0.4;
-    }
-    nx = clamp(resolved.x, -172, 156);
-    nz = clamp(resolved.z, -172, 156);
-    this.x = nx; this.z = nz;
-
-    // Walk cycle: legs and arms swing with speed.
-    this.walkPhase += dt * this.speed * 2.4;
-    const swing = Math.sin(this.walkPhase) * clamp(this.speed / 5, 0, 1) * 0.6;
-    this.model.legL.rotation.x = swing;
-    this.model.legR.rotation.x = -swing;
-    this.model.armL.rotation.x = -swing * 0.7;
-    this.model.armR.rotation.x = swing * 0.7;
-
-    // Punch: a short arc in front of the player.
-    if (this.punchTimer > 0) {
-      this.punchTimer -= dt;
-      this.model.armR.rotation.x = -1.9 * Math.sin((this.punchTimer / 0.28) * Math.PI);
-    }
-    if (input.punch && this.punchCooldown <= 0) {
-      this.punchCooldown = 0.42;
-      this.punchTimer = 0.28;
-      world.onPunch?.(this);
-    }
-    // Edge-triggered: a press is one punch, even if the frame that reads it
-    // comes late.
-    input.punch = false;
-
-    // Shooting: hitscan against cops, guards and peds in a narrow cone.
-    // A queued click fires on the next frame even if the button was already
-    // released — at low frame rates a down/up pair can otherwise land
-    // between two frames and be swallowed entirely.
-    if ((input.shoot || input.shootQueued) && this.armed && this.shootCooldown <= 0 && this.reloadTimer <= 0) {
-      if (this.ammo <= 0) {
-        this.reloadTimer = cfg.reloadSeconds;
-        world.onReloadStart?.();
-      } else {
-        this.shootCooldown = 0.22;
-        this.ammo -= 1;
-        world.onShoot?.(this);
-      }
-      input.shootQueued = false;
-    } else if (!this.armed) {
-      input.shootQueued = false;
-    }
-    if (input.reload && this.ammo < cfg.magSize && this.reloadTimer <= 0) {
-      this.reloadTimer = cfg.reloadSeconds;
-      world.onReloadStart?.();
-    }
-
-    this.model.group.position.set(this.x, 0, this.z);
-    this.model.group.rotation.y = this.heading;
-    this.model.gun.visible = this.armed;
-  }
-
-  // Step out of the driver's seat beside the car.
-  exitCar(colliders = []) {
-    if (!this.inCar) return;
-    const car = this.inCar;
-    const px = car.x + Math.cos(car.heading) * 2.6;
-    const pz = car.z - Math.sin(car.heading) * 2.6;
-    car.active = false;
-    this.inCar = null;
-    this.onFoot = true;
-    const resolved = resolveCircleVsBuildings(px, pz, CONFIG.player.radius, colliders);
-    this.place(resolved.x, resolved.z, car.heading);
-    this.model.group.visible = true;
-  }
-
-  enterCar(car, world) {
-    this.inCar = car;
-    this.onFoot = false;
-    car.active = true;
-    this.model.group.visible = false;
-    this.vx = 0; this.vz = 0;
-    world.onEnterCar?.(car);
+    this.health = Math.min(100, this.health + amount);
   }
 }

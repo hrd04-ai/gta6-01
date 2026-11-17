@@ -1,439 +1,271 @@
-// The story of Rico Vega: five missions that take him from a stolen sedan
-// to the biggest score Palmera Bay has ever seen, plus fares for cash
-// between jobs. Every mission is data: steps with a type, a target and
-// the words Rico hears as he works.
-
+// Mara's five-mission story arc plus side fares. A mission is a small state
+// machine: reach a beacon, survive a timer, or clear the bank guards. The
+// beacon is one reused column of light; the HUD reads the objective each frame.
 import * as THREE from 'three';
-import { CONFIG, PLACES } from './config.js';
-import { createRng, pick, range, int, clamp } from './random.js';
+import { CFG, MISSIONS, DIALOGUE } from './config.js';
 
-export const MISSION_DEFS = [
-  {
-    id: 'first-wheels',
-    title: 'First Wheels',
-    intro: [
-      'MARA: Rico, you need wheels before you need a plan.',
-      'MARA: Any car on the street. Take it. Drive it to the Marina.',
-    ],
-    reward: 300,
-    steps: [
-      { type: 'steal-car', text: 'Steal any car (press E near one)' },
-      { type: 'goto', target: PLACES.marina, radius: 8, text: 'Drive to Sunset Marina' },
-    ],
-    complete: 'MARA: Clean. Here is your piece — do not wave it around.',
-  },
-  {
-    id: 'the-pickup',
-    title: 'The Pickup',
-    intro: [
-      'MARA: A package is waiting in the Canal Row alley.',
-      'MARA: Walk in, grab it, and bring it to the Drop. No sirens.',
-    ],
-    reward: 600,
-    steps: [
-      { type: 'goto', target: PLACES.alley, radius: 5, text: 'Go to the Canal Row alley' },
-      { type: 'collect', target: PLACES.alley, radius: 4, text: 'Collect the package' },
-      { type: 'goto', target: PLACES.drop, radius: 8, text: 'Deliver the package to the Drop' },
-    ],
-    complete: 'MARA: Delivered. The crew is starting to notice you.',
-  },
-  {
-    id: 'harbor-run',
-    title: 'Harbor Run',
-    intro: [
-      'MARA: A container at Harbor East leaves in 75 seconds.',
-      'MARA: Be in it. I mean: be there. Drive like the bay is on fire.',
-    ],
-    reward: 900,
-    steps: [
-      { type: 'timed-drive', target: PLACES.harbor, radius: 10, time: 75, text: 'Reach Harbor East before the ship leaves' },
-    ],
-    complete: 'MARA: Made it with seconds to spare. You drive like you mean it.',
-  },
-  {
-    id: 'heat-wave',
-    title: 'Heat Wave',
-    intro: [
-      'MARA: Somebody talked. The whole PBPD is looking for you.',
-      'MARA: Survive a minute of this, then vanish to the Safehouse.',
-    ],
-    reward: 1200,
-    steps: [
-      { type: 'survive', time: 60, text: 'Survive the heat — 3 stars and counting' },
-      { type: 'goto', target: PLACES.safehouse, radius: 8, text: 'Reach the Safehouse' },
-    ],
-    complete: 'MARA: They lost you. That is how you stay free in this city.',
-  },
-  {
-    id: 'the-big-score',
-    title: 'The Big Score',
-    intro: [
-      'MARA: Palmera Trust Bank. Three guards, one vault, one way out.',
-      'MARA: Take the cash, lose the cops, meet me at the Safehouse.',
-    ],
-    reward: 5000,
-    steps: [
-      { type: 'goto', target: PLACES.bank, radius: 10, text: 'Reach Palmera Trust Bank' },
-      { type: 'combat', target: PLACES.bank, radius: 16, count: 3, text: 'Deal with the bank guards (0/3)' },
-      { type: 'collect', target: PLACES.bank, radius: 6, text: 'Grab the cash from the vault' },
-      { type: 'goto', target: PLACES.safehouse, radius: 8, text: 'Escape to the Safehouse — lose the heat' },
-    ],
-    complete: 'MARA: Five thousand, clean. Palmera Bay is yours now, Rico.',
-  },
-];
+const ALLEY = { x: -88, z: 44 };
+const HARBOR_POINT = { x: 166, z: 66 };
 
-function createGuardModel() {
+function makeGuardMesh() {
   const group = new THREE.Group();
-  const suit = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
-  const skin = new THREE.MeshStandardMaterial({ color: 0xd9a06a, roughness: 0.8 });
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 0.6, 4, 8), suit);
-  torso.position.y = 1.18;
-  torso.castShadow = true;
-  group.add(torso);
-  const vest = new THREE.Mesh(
-    new THREE.BoxGeometry(0.6, 0.5, 0.2),
-    new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.8 }),
-  );
-  vest.position.set(0, 1.25, 0.3);
-  group.add(vest);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 10), skin);
-  head.position.y = 1.9;
+  const suit = new THREE.MeshStandardMaterial({ color: 0x22242a, roughness: 0.85 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xc98d5f, roughness: 0.8 });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), skin);
+  head.position.y = 1.62;
   group.add(head);
-  const shades = new THREE.Mesh(
-    new THREE.BoxGeometry(0.4, 0.1, 0.12),
-    new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 }),
-  );
-  shades.position.set(0, 1.93, 0.22);
-  group.add(shades);
-  const legGeo = new THREE.CapsuleGeometry(0.14, 0.55, 4, 6);
-  const legL = new THREE.Mesh(legGeo, suit);
-  legL.position.set(-0.17, 0.52, 0);
-  const legR = new THREE.Mesh(legGeo, suit);
-  legR.position.set(0.17, 0.52, 0);
-  group.add(legL, legR);
-  const armGeo = new THREE.CapsuleGeometry(0.1, 0.45, 4, 6);
-  const armL = new THREE.Mesh(armGeo, suit);
-  armL.position.set(-0.45, 1.28, 0);
-  const armR = new THREE.Mesh(armGeo, suit);
-  armR.position.set(0.45, 1.28, 0);
-  group.add(armR);
-  const gun = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.12, 0.4),
-    new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.7, roughness: 0.4 }),
-  );
-  gun.position.set(0.45, 1.0, 0.3);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.4), suit);
+  torso.position.y = 1.05;
+  group.add(torso);
+  const legGeo = new THREE.BoxGeometry(0.26, 0.72, 0.28);
+  for (const s of [0.17, -0.17]) {
+    const leg = new THREE.Mesh(legGeo, suit);
+    leg.position.set(s, 0.36, 0);
+    group.add(leg);
+  }
+  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.6), new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.6, roughness: 0.4 }));
+  gun.position.set(0.4, 1.1, 0.3);
   group.add(gun);
-  return { group, legL, legR, armL, armR };
+  return group;
 }
 
 export class MissionSystem {
-  constructor(scene, seed = CONFIG.seed) {
+  constructor(scene) {
     this.scene = scene;
-    this.rng = createRng(seed + 707);
     this.index = 0;
-    this.stepIndex = 0;
-    this.active = false;
-    this.storyDone = false;
+    this.stage = 0;
     this.timer = 0;
-    this.stepTimer = 0;
+    this.heatTimer = 0;
+    this.done = false;
     this.guards = [];
-    this.faresEnabled = false;
-    this.fare = null; // {state:'pickup'|'drop', x, z, pay, timer}
-    this.fareCooldown = 8;
-
-    // The beacon: a shaft of gold light and a floating diamond that marks
-    // the current objective from anywhere in the city.
-    const beaconMat = new THREE.MeshBasicMaterial({
-      color: 0xffc23c, transparent: true, opacity: 0.22,
-      side: THREE.DoubleSide, depthWrite: false,
+    this.fare = null;
+    this.faresDone = 0;
+    this.fareCooldown = 20;
+    // Beacon: a column of light marking the current objective.
+    const geo = new THREE.CylinderGeometry(2.6, 2.6, 34, 18, 1, true);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xffc832, transparent: true, opacity: 0.35,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
     });
-    this.beacon = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 60, 12, 1, true), beaconMat);
+    this.beacon = new THREE.Mesh(geo, mat);
+    this.beacon.position.y = 17;
     this.beacon.visible = false;
     scene.add(this.beacon);
-    this.diamond = new THREE.Mesh(
-      new THREE.OctahedronGeometry(1.1),
-      new THREE.MeshStandardMaterial({ color: 0xffc23c, emissive: 0xcc8800, emissiveIntensity: 1.4 }),
-    );
-    this.diamond.visible = false;
-    scene.add(this.diamond);
-    this.ring = new THREE.Mesh(
-      new THREE.RingGeometry(3.4, 4, 32),
-      new THREE.MeshBasicMaterial({ color: 0xffc23c, transparent: true, opacity: 0.7, side: THREE.DoubleSide }),
-    );
+    const ringGeo = new THREE.RingGeometry(2.2, 3.4, 24);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffc832, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    this.ring = new THREE.Mesh(ringGeo, ringMat);
     this.ring.rotation.x = -Math.PI / 2;
+    this.ring.position.y = 0.12;
     this.ring.visible = false;
     scene.add(this.ring);
   }
 
-  get def() {
-    return MISSION_DEFS[this.index];
-  }
+  get current() { return MISSIONS[this.index]; }
 
-  get step() {
-    return this.def ? this.def.steps[this.stepIndex] : null;
-  }
-
-  get target() {
-    const s = this.step;
-    if (!s || !s.target) return null;
-    return s.target;
-  }
-
-  startMission(index, ctx) {
+  startMission(G, index) {
     this.index = index;
-    this.stepIndex = 0;
-    this.active = true;
+    this.stage = 0;
     this.timer = 0;
-    this.stepTimer = 0;
-    const def = this.def;
-    for (const line of def.intro) ctx.onToast?.(line, 3.2);
-    ctx.onObjective?.(def.title);
-    if (def.id === 'heat-wave') ctx.police.addHeat(110);
-    if (def.id === 'the-big-score') this.spawnGuards();
+    this.heatTimer = 0;
+    this.clearGuards();
+    const m = MISSIONS[index];
+    G.hud.showDialogue(m.brief);
+    G.hud.toast(`Mission: ${m.name}`);
+    if (index === 2) this.timer = CFG.harborRunTime;
+    if (index === 3) { G.police.addHeat(50); }
+    if (index === 4) { this.spawnGuards(G); this.stage = 1; }
+    G.audio.jingle();
   }
 
-  restartCurrent(ctx) {
-    this.clearGuards();
-    this.startMission(this.index, ctx);
-  }
-
-  spawnGuards() {
-    this.clearGuards();
-    const b = PLACES.bank;
-    // On the bank's south plaza, in the open — never inside the tower.
+  spawnGuards(G) {
+    const bank = G.city.landmarks.bank;
     const spots = [
-      { x: b.x - 8, z: b.z + 14 }, { x: b.x + 8, z: b.z + 12 }, { x: b.x, z: b.z + 16 },
+      { x: bank.x - 10, z: bank.z + 12 },
+      { x: bank.x + 8, z: bank.z + 14 },
+      // All three stand south of the bank's front face (z -55) — never
+      // inside the tower volume, or the third guard is hidden behind it.
+      { x: bank.x + 2, z: bank.z + 16 },
     ];
     for (const s of spots) {
-      const model = createGuardModel();
-      model.group.position.set(s.x, 0, s.z);
-      this.scene.add(model.group);
-      this.guards.push({
-        model, x: s.x, z: s.z, hp: 60, heading: 0,
-        shootCooldown: range(this.rng, 0.8, 1.6),
-        walkPhase: 0, home: s,
-      });
+      const mesh = makeGuardMesh();
+      mesh.position.set(s.x, 0, s.z);
+      this.scene.add(mesh);
+      this.guards.push({ mesh, pos: new THREE.Vector3(s.x, 0, s.z), hp: 100, dead: false, down: false, fireTimer: 1 });
     }
   }
 
   clearGuards() {
-    for (const g of this.guards) this.scene.remove(g.model.group);
+    for (const g of this.guards) this.scene.remove(g.mesh);
     this.guards = [];
   }
 
-  damageGuard(guard, dmg, ctx) {
-    guard.hp -= dmg;
-    if (guard.hp <= 0) {
-      this.scene.remove(guard.model.group);
-      this.guards = this.guards.filter((g) => g !== guard);
-      ctx.police.addHeat(30);
-      ctx.onToast?.('Guard down.', 1.6);
-      return true;
-    }
-    return false;
-  }
+  aliveGuards() { return this.guards.filter((g) => !g.dead); }
 
-  // Nearest guard inside a cone from (ox, oz) along (dx, dz), or null.
-  shootRay(ox, oz, dx, dz, rangeMax) {
-    let best = null, bestD = rangeMax;
-    for (const g of this.guards) {
-      const vx = g.x - ox, vz = g.z - oz;
-      const d = Math.hypot(vx, vz);
-      if (d > bestD || d < 0.5) continue;
-      const dot = (vx * dx + vz * dz) / d;
-      if (dot > 0.985) { best = g; bestD = d; }
-    }
-    return best ? { guard: best, dist: bestD } : null;
-  }
-
-  punchArc(ox, oz, heading, rangeMax) {
-    let best = null, bestD = rangeMax;
-    for (const g of this.guards) {
-      const vx = g.x - ox, vz = g.z - oz;
-      const d = Math.hypot(vx, vz);
-      if (d > bestD || d < 0.4) continue;
-      const dot = (vx * Math.sin(heading) + vz * Math.cos(heading)) / d;
-      if (dot > 0.5) { best = g; bestD = d; }
-    }
-    return best;
-  }
-
-  completeStep(ctx) {
-    const done = this.step; // the step just finished, before we advance
-    this.stepIndex++;
-    this.stepTimer = 0;
-    if (this.stepIndex >= this.def.steps.length) {
-      this.completeMission(ctx);
-      return;
-    }
-    if (done.type === 'collect' && this.def.id === 'the-pickup') {
-      ctx.police.addHeat(25);
-      ctx.onToast?.('The package is hot — PBPD is onto you!', 3);
-    }
-    if (done.type === 'collect' && this.def.id === 'the-big-score') {
-      ctx.police.addHeat(120);
-      ctx.onToast?.('Four stars! Lose them and reach the Safehouse.', 3.5);
-    }
-  }
-
-  completeMission(ctx) {
-    const def = this.def;
-    ctx.onCash?.(def.reward);
-    ctx.onToast?.(`${def.complete} (+$${def.reward})`, 4);
-    ctx.onMissionComplete?.(def);
-    this.active = false;
-    this.hideBeacon();
-    if (this.index === 0) ctx.onUnlockPistol?.();
-    if (this.index === 1) this.faresEnabled = true;
-    if (this.index >= MISSION_DEFS.length - 1) {
-      this.storyDone = true;
-      ctx.onStoryComplete?.();
-      return;
-    }
-    this.index++;
-    this.startMission(this.index, ctx);
-  }
-
-  failMission(ctx, reason) {
-    ctx.onToast?.(`${reason} — try again.`, 3.5);
-    ctx.onMissionFailed?.(this.def);
-    this.restartCurrent(ctx);
-  }
-
-  hideBeacon() {
+  completeMission(G) {
+    const m = MISSIONS[this.index];
+    G.cash += m.reward;
+    G.audio.jingle();
+    G.hud.toast(`Mission complete: ${m.name}  +$${m.reward}`);
+    G.hud.showDialogue(DIALOGUE.missionDone[this.index % DIALOGUE.missionDone.length]);
     this.beacon.visible = false;
-    this.diamond.visible = false;
     this.ring.visible = false;
-  }
-
-  objectiveText() {
-    if (!this.active) {
-      if (this.storyDone) return { title: 'Free Roam', text: 'Palmera Bay is yours. Fares pay cash — look for the gold markers.' };
-      return { title: 'Palmera Bay', text: 'Press Enter to start the story.' };
+    this.clearGuards();
+    this.index++;
+    if (this.index >= MISSIONS.length) {
+      this.done = true;
+      G.hud.showDialogue('Mara: That is the whole story, Rico. Palmera Bay is yours now — free roam, fares, whatever you want.');
+      G.hud.toast('STORY COMPLETE — free roam!');
+      G.saveGame();
+      return;
     }
-    const s = this.step;
-    let text = s.text;
-    if (s.type === 'combat') {
-      text = `Deal with the bank guards (${s.count - this.guards.length}/${s.count})`;
+    this.startMission(G, this.index);
+    G.saveGame();
+  }
+
+  failMission(G, reason) {
+    G.hud.toast(reason);
+    G.hud.showDialogue('Mara: That did not work. Shake it off — we run it again.');
+    this.startMission(G, this.index);
+  }
+
+  objective() {
+    if (this.done) return { text: 'Free roam — fares pay $45 a ride', target: this.fare ? this.fare.pickup : null, timeLeft: null };
+    switch (this.index) {
+      case 0: return { text: 'Steal a car', target: null, timeLeft: null };
+      case 1: return { text: 'Pick up the package in the alley', target: ALLEY, timeLeft: null };
+      case 2: return { text: 'Reach the harbor beacon', target: HARBOR_POINT, timeLeft: Math.ceil(this.timer) };
+      case 3: return { text: `Survive at 3 stars (${Math.ceil(this.heatTimer)}/${CFG.heatWaveTime}s)`, target: null, timeLeft: null };
+      case 4: {
+        if (this.stage === 1) return { text: 'Get to Bay Bank', target: { x: 66, z: -66 }, timeLeft: null };
+        if (this.stage === 2) return { text: `Clear the guards (${this.aliveGuards().length} left)`, target: { x: 66, z: -66 }, timeLeft: null };
+        return { text: 'Grab the $5,000 from the vault', target: { x: 66, z: -70 }, timeLeft: null };
+      }
+      default: return { text: '', target: null, timeLeft: null };
     }
-    return { title: this.def.title, text, timer: s.time ? Math.max(0, s.time - this.stepTimer) : null };
   }
 
-  playerPos(ctx) {
-    const p = ctx.player;
-    return p.inCar ? { x: p.inCar.x, z: p.inCar.z } : { x: p.x, z: p.z };
+  maybeOfferFare(G) {
+    if (this.index < 2 || this.done) return;
+    if (this.fare) return;
+    this.fareCooldown -= 1 / 60;
+    if (this.fareCooldown > 0) return;
+    this.fareCooldown = 45;
+    const px = (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing;
+    const pz = (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing;
+    this.fare = {
+      pickup: { x: px + 10, z: pz },
+      dest: { x: (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing, z: (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing },
+      aboard: false,
+    };
+    G.hud.toast('Fare available — pick up the passenger (green beacon)');
   }
 
-  update(dt, ctx) {
-    // Beacon animation and placement.
-    const t = this.target;
-    if (this.active && t) {
+  update(dt, G) {
+    const player = G.player;
+    const pPos = player.inCar ? player.inCar.pos : player.pos;
+    const obj = this.objective();
+    // Beacon follows the current objective target.
+    if (obj.target) {
       this.beacon.visible = true;
-      this.diamond.visible = true;
       this.ring.visible = true;
-      this.beacon.position.set(t.x, 30, t.z);
-      this.diamond.position.set(t.x, 8 + Math.sin(ctx.time * 2) * 0.8, t.z);
-      this.diamond.rotation.y += dt * 1.5;
-      this.ring.position.set(t.x, 0.15, t.z);
-      const pulse = 0.55 + Math.sin(ctx.time * 3) * 0.2;
-      this.ring.material.opacity = pulse;
+      this.beacon.position.set(obj.target.x, 17, obj.target.z);
+      this.ring.position.set(obj.target.x, 0.12, obj.target.z);
+      this.beacon.material.opacity = 0.28 + Math.sin(G.time * 4) * 0.1;
+      this.ring.scale.setScalar(1 + Math.sin(G.time * 4) * 0.08);
     } else if (!this.fare) {
-      this.hideBeacon();
+      this.beacon.visible = false;
+      this.ring.visible = false;
     }
-
-    // Fares: a gold marker appears, a passenger rides, cash lands.
-    if (this.faresEnabled && this.active === false) {
-      this.updateFare(dt, ctx);
-    }
-
-    if (!this.active) return;
-    const s = this.step;
-    if (!s) return;
-    const pos = this.playerPos(ctx);
-    const player = ctx.player;
-
-    if (s.type === 'steal-car') {
-      if (player.inCar) this.completeStep(ctx);
+    if (this.done) {
+      this.updateFare(dt, G, pPos);
       return;
     }
-    if (s.type === 'timed-drive' || s.type === 'survive') {
-      this.stepTimer += dt;
-      if (s.type === 'timed-drive') {
-        const d = Math.hypot(pos.x - s.target.x, pos.z - s.target.z);
-        if (d < s.radius) { this.completeStep(ctx); return; }
-        if (this.stepTimer > s.time) { this.failMission(ctx, 'Too slow — the ship left'); return; }
+    switch (this.index) {
+      case 0:
+        if (player.inCar) this.completeMission(G);
+        break;
+      case 1: {
+        const d = Math.hypot(pPos.x - ALLEY.x, pPos.z - ALLEY.z);
+        if (d < 5) { G.audio.pickup(); this.completeMission(G); }
+        break;
       }
-      if (s.type === 'survive' && this.stepTimer > s.time) {
-        this.completeStep(ctx);
-        return;
+      case 2: {
+        this.timer -= dt;
+        const d = Math.hypot(pPos.x - HARBOR_POINT.x, pPos.z - HARBOR_POINT.z);
+        if (d < 7) this.completeMission(G);
+        else if (this.timer <= 0) this.failMission(G, 'Harbor Run failed — the buyer left.');
+        break;
       }
-      return;
-    }
-    if (s.type === 'combat') {
-      // Guards hold their ground and shoot at Rico.
-      for (const g of this.guards) {
-        const d = Math.hypot(player.x - g.x, player.z - g.z);
-        const want = Math.atan2(player.x - g.x, player.z - g.z);
-        g.heading += clamp(want - g.heading, -3 * dt, 3 * dt);
-        g.model.group.rotation.y = g.heading;
-        g.shootCooldown -= dt;
-        if (d < 30 && g.shootCooldown <= 0 && player.onFoot && !player.dead) {
-          g.shootCooldown = range(this.rng, 1.1, 1.8);
-          ctx.onGuardShoot?.(g);
-          if (this.rng() < 0.32) player.hurt(8, ctx);
+      case 3: {
+        G.police.heat = Math.max(G.police.heat, 45);
+        if (G.police.wanted >= 3) {
+          this.heatTimer += dt;
+          if (this.heatTimer >= CFG.heatWaveTime) this.completeMission(G);
         }
+        break;
       }
-      if (this.guards.length === 0) this.completeStep(ctx);
-      return;
-    }
-    // goto / collect: stand in the radius.
-    const d = Math.hypot(pos.x - s.target.x, pos.z - s.target.z);
-    if (d < s.radius) {
-      if (s.type === 'collect') {
-        ctx.onPickup?.();
+      case 4: {
+        if (this.stage === 1) {
+          const d = Math.hypot(pPos.x - 66, pPos.z - (-66));
+          if (d < 14) { this.stage = 2; G.hud.showDialogue('Guard: Hey! Nobody moves! Take them down, Rico!'); }
+        } else if (this.stage === 2) {
+          if (this.aliveGuards().length === 0) { this.stage = 3; G.hud.toast('Vault open — grab the cash!'); }
+        } else if (this.stage === 3) {
+          const d = Math.hypot(pPos.x - 66, pPos.z - (-70));
+          if (d < 5) this.completeMission(G);
+        }
+        // Guards shoot at Rico when he is close.
+        for (const g of this.aliveGuards()) {
+          const d = Math.hypot(g.pos.x - pPos.x, g.pos.z - pPos.z);
+          if (d < 34) {
+            g.fireTimer -= dt;
+            g.mesh.lookAt(pPos.x, 1.4, pPos.z);
+            if (g.fireTimer <= 0) {
+              g.fireTimer = 1.3;
+              G.effects.burst(new THREE.Vector3(g.pos.x, 1.4, g.pos.z), 2, 0xffd76a, 3, 1, 0.25);
+              if (!player.inCar && Math.random() < 0.55) {
+                if (player.takeDamage(8, G.effects)) G.events.push('wasted');
+              } else if (player.inCar && Math.random() < 0.3) {
+                player.inCar.hp -= 4;
+              }
+              G.audio.shot();
+            }
+          }
+        }
+        break;
       }
-      this.completeStep(ctx);
+      default:
+        break;
     }
+    this.updateFare(dt, G, pPos);
   }
 
-  updateFare(dt, ctx) {
-    this.fareCooldown -= dt;
-    if (!this.fare && this.fareCooldown <= 0) {
-      const p = this.randomFarePoint();
-      this.fare = { state: 'pickup', x: p.x, z: p.z, pay: int(this.rng, CONFIG.money.fareMin, CONFIG.money.fareMax) };
-      ctx.onToast?.(`Fare nearby — pick up the passenger ($${this.fare.pay}).`, 3);
-    }
-    if (this.fare) {
-      const pos = this.playerPos(ctx);
-      const d = Math.hypot(pos.x - this.fare.x, pos.z - this.fare.z);
-      this.beacon.visible = true;
-      this.diamond.visible = true;
-      this.ring.visible = true;
-      this.beacon.position.set(this.fare.x, 30, this.fare.z);
-      this.diamond.position.set(this.fare.x, 8 + Math.sin(ctx.time * 2) * 0.8, this.fare.z);
-      this.diamond.rotation.y += dt * 1.5;
-      this.ring.position.set(this.fare.x, 0.15, this.fare.z);
-      if (d < 6) {
-        if (this.fare.state === 'pickup') {
-          const drop = this.randomFarePoint();
-          this.fare = { state: 'drop', x: drop.x, z: drop.z, pay: this.fare.pay };
-          ctx.onToast?.('Passenger aboard — take them to the gold marker.', 3);
-        } else {
-          ctx.onCash?.(this.fare.pay);
-          ctx.onToast?.(`Fare complete (+$${this.fare.pay}).`, 2.5);
-          this.fare = null;
-          this.fareCooldown = 15;
-          this.hideBeacon();
-        }
+  updateFare(dt, G, pPos) {
+    this.maybeOfferFare(G);
+    if (!this.fare) return;
+    const point = this.fare.aboard ? this.fare.dest : this.fare.pickup;
+    if (!this.done && this.objective().target) return; // story beacon takes priority
+    this.beacon.visible = true;
+    this.ring.visible = true;
+    this.beacon.material.color.setHex(0x39d353);
+    this.beacon.position.set(point.x, 17, point.z);
+    this.ring.position.set(point.x, 0.12, point.z);
+    const d = Math.hypot(pPos.x - point.x, pPos.z - point.z);
+    if (d < 5) {
+      if (!this.fare.aboard) {
+        this.fare.aboard = true;
+        G.hud.toast('Passenger aboard — drive to the marker');
+        G.audio.pickup();
+      } else {
+        G.cash += CFG.fareReward;
+        this.faresDone++;
+        G.hud.toast(`Fare complete  +$${CFG.fareReward}`);
+        G.hud.showDialogue(DIALOGUE.fareDone);
+        G.audio.jingle();
+        this.fare = null;
+        this.beacon.material.color.setHex(0xffc832);
+        G.saveGame();
       }
     }
-  }
-
-  randomFarePoint() {
-    const lines = CONFIG.world.lines;
-    const line = pick(this.rng, lines);
-    const along = range(this.rng, -140, 140);
-    if (this.rng() < 0.5) return { x: line + 8, z: along };
-    return { x: along, z: line + 8 };
   }
 }

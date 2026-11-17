@@ -1,46 +1,37 @@
-// Saving in Palmera Bay: cash, story progress, health and position go to
-// localStorage, so a run survives a closed tab. Nothing leaves the browser.
-
+// Save / load through localStorage. Autosaves after each mission and on exit
+// to the pause menu; the title screen offers Continue when a save exists.
 const KEY = 'palmera-bay-save-v1';
 
-export function saveGame(state) {
+export function loadSave() {
   try {
-    const data = {
-      version: 1,
-      savedAt: Date.now(),
-      cash: Math.floor(state.cash),
-      missionIndex: state.missionIndex,
-      storyDone: state.storyDone,
-      health: state.health,
-      armed: state.armed,
-      x: state.x,
-      z: state.z,
-      heading: state.heading,
-      clockMinutes: state.clockMinutes,
-    };
-    localStorage.setItem(KEY, JSON.stringify(data));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function loadGame() {
-  try {
-    const raw = localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
-    if (data.version !== 1) return null;
+    if (!data || typeof data.mission !== 'number') return null;
     return data;
   } catch {
     return null;
   }
 }
 
-export function clearSave() {
-  try { localStorage.removeItem(KEY); } catch { /* storage unavailable */ }
+export function writeSave(state) {
+  try {
+    const data = {
+      mission: state.missionIndex,
+      cash: Math.round(state.cash),
+      px: +state.player.pos.x.toFixed(1),
+      pz: +state.player.pos.z.toFixed(1),
+      wanted: state.wanted,
+      fares: state.faresDone,
+      savedAt: Date.now(),
+    };
+    window.localStorage.setItem(KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export function hasSave() {
-  return loadGame() !== null;
+export function clearSave() {
+  try { window.localStorage.removeItem(KEY); } catch { /* storage unavailable */ }
 }
