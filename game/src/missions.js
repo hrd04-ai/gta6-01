@@ -4,8 +4,15 @@
 import * as THREE from 'three';
 import { CFG, MISSIONS, DIALOGUE } from './config.js';
 
+// Where the Old Town package waits, and where the Harbor Run buyer stands.
 const ALLEY = { x: -88, z: 44 };
 const HARBOR_POINT = { x: 166, z: 66 };
+// Bay Bank front: the guards stand south of the tower, the vault behind it.
+const BANK_FRONT = { x: 66, z: -66 };
+const BANK_VAULT = { x: 66, z: -70 };
+
+const BEACON_YELLOW = 0xffc832;
+const BEACON_GREEN = 0x39d353;
 
 function makeGuardMesh() {
   const group = new THREE.Group();
@@ -23,7 +30,10 @@ function makeGuardMesh() {
     leg.position.set(s, 0.36, 0);
     group.add(leg);
   }
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.6), new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.6, roughness: 0.4 }));
+  const gun = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.16, 0.6),
+    new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.6, roughness: 0.4 }),
+  );
   gun.position.set(0.4, 1.1, 0.3);
   group.add(gun);
   return group;
@@ -41,18 +51,29 @@ export class MissionSystem {
     this.fare = null;
     this.faresDone = 0;
     this.fareCooldown = 20;
+
     // Beacon: a column of light marking the current objective.
     const geo = new THREE.CylinderGeometry(2.6, 2.6, 34, 18, 1, true);
     const mat = new THREE.MeshBasicMaterial({
-      color: 0xffc832, transparent: true, opacity: 0.35,
-      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      color: BEACON_YELLOW,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
     });
     this.beacon = new THREE.Mesh(geo, mat);
     this.beacon.position.y = 17;
     this.beacon.visible = false;
     scene.add(this.beacon);
+
     const ringGeo = new THREE.RingGeometry(2.2, 3.4, 24);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffc832, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: BEACON_YELLOW,
+      transparent: true,
+      opacity: 0.8,
+      side: THREE.DoubleSide,
+    });
     this.ring = new THREE.Mesh(ringGeo, ringMat);
     this.ring.rotation.x = -Math.PI / 2;
     this.ring.position.y = 0.12;
@@ -72,25 +93,35 @@ export class MissionSystem {
     G.hud.showDialogue(m.brief);
     G.hud.toast(`Mission: ${m.name}`);
     if (index === 2) this.timer = CFG.harborRunTime;
-    if (index === 3) { G.police.addHeat(50); }
-    if (index === 4) { this.spawnGuards(G); this.stage = 1; }
+    if (index === 3) G.police.addHeat(50);
+    if (index === 4) {
+      this.spawnGuards(G);
+      this.stage = 1;
+    }
     G.audio.jingle();
   }
 
   spawnGuards(G) {
     const bank = G.city.landmarks.bank;
+    // All three stand south of the bank's front face (z -55) — never inside
+    // the tower volume, or the third guard is hidden behind it.
     const spots = [
       { x: bank.x - 10, z: bank.z + 12 },
       { x: bank.x + 8, z: bank.z + 14 },
-      // All three stand south of the bank's front face (z -55) — never
-      // inside the tower volume, or the third guard is hidden behind it.
       { x: bank.x + 2, z: bank.z + 16 },
     ];
     for (const s of spots) {
       const mesh = makeGuardMesh();
       mesh.position.set(s.x, 0, s.z);
       this.scene.add(mesh);
-      this.guards.push({ mesh, pos: new THREE.Vector3(s.x, 0, s.z), hp: 100, dead: false, down: false, fireTimer: 1 });
+      this.guards.push({
+        mesh,
+        pos: new THREE.Vector3(s.x, 0, s.z),
+        hp: 100,
+        dead: false,
+        down: false,
+        fireTimer: 1,
+      });
     }
   }
 
@@ -129,18 +160,37 @@ export class MissionSystem {
   }
 
   objective() {
-    if (this.done) return { text: 'Free roam — fares pay $45 a ride', target: this.fare ? this.fare.pickup : null, timeLeft: null };
+    if (this.done) {
+      return {
+        text: 'Free roam — fares pay $45 a ride',
+        target: this.fare ? this.fare.pickup : null,
+        timeLeft: null,
+      };
+    }
     switch (this.index) {
-      case 0: return { text: 'Steal a car', target: null, timeLeft: null };
-      case 1: return { text: 'Pick up the package in the alley', target: ALLEY, timeLeft: null };
-      case 2: return { text: 'Reach the harbor beacon', target: HARBOR_POINT, timeLeft: Math.ceil(this.timer) };
-      case 3: return { text: `Survive at 3 stars (${Math.ceil(this.heatTimer)}/${CFG.heatWaveTime}s)`, target: null, timeLeft: null };
+      case 0:
+        return { text: 'Steal a car', target: null, timeLeft: null };
+      case 1:
+        return { text: 'Pick up the package in the alley', target: ALLEY, timeLeft: null };
+      case 2:
+        return { text: 'Reach the harbor beacon', target: HARBOR_POINT, timeLeft: Math.ceil(this.timer) };
+      case 3:
+        return {
+          text: `Survive at 3 stars (${Math.ceil(this.heatTimer)}/${CFG.heatWaveTime}s)`,
+          target: null,
+          timeLeft: null,
+        };
       case 4: {
-        if (this.stage === 1) return { text: 'Get to Bay Bank', target: { x: 66, z: -66 }, timeLeft: null };
-        if (this.stage === 2) return { text: `Clear the guards (${this.aliveGuards().length} left)`, target: { x: 66, z: -66 }, timeLeft: null };
-        return { text: 'Grab the $5,000 from the vault', target: { x: 66, z: -70 }, timeLeft: null };
+        if (this.stage === 1) {
+          return { text: 'Get to Bay Bank', target: BANK_FRONT, timeLeft: null };
+        }
+        if (this.stage === 2) {
+          return { text: `Clear the guards (${this.aliveGuards().length} left)`, target: BANK_FRONT, timeLeft: null };
+        }
+        return { text: 'Grab the $5,000 from the vault', target: BANK_VAULT, timeLeft: null };
       }
-      default: return { text: '', target: null, timeLeft: null };
+      default:
+        return { text: '', target: null, timeLeft: null };
     }
   }
 
@@ -154,7 +204,10 @@ export class MissionSystem {
     const pz = (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing;
     this.fare = {
       pickup: { x: px + 10, z: pz },
-      dest: { x: (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing, z: (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing },
+      dest: {
+        x: (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing,
+        z: (Math.floor(Math.random() * 7) - 3) * CFG.roadSpacing,
+      },
       aboard: false,
     };
     G.hud.toast('Fare available — pick up the passenger (green beacon)');
@@ -164,7 +217,8 @@ export class MissionSystem {
     const player = G.player;
     const pPos = player.inCar ? player.inCar.pos : player.pos;
     const obj = this.objective();
-    // Beacon follows the current objective target.
+
+    // The beacon follows the current objective target.
     if (obj.target) {
       this.beacon.visible = true;
       this.ring.visible = true;
@@ -176,17 +230,22 @@ export class MissionSystem {
       this.beacon.visible = false;
       this.ring.visible = false;
     }
+
     if (this.done) {
       this.updateFare(dt, G, pPos);
       return;
     }
+
     switch (this.index) {
       case 0:
         if (player.inCar) this.completeMission(G);
         break;
       case 1: {
         const d = Math.hypot(pPos.x - ALLEY.x, pPos.z - ALLEY.z);
-        if (d < 5) { G.audio.pickup(); this.completeMission(G); }
+        if (d < 5) {
+          G.audio.pickup();
+          this.completeMission(G);
+        }
         break;
       }
       case 2: {
@@ -197,6 +256,8 @@ export class MissionSystem {
         break;
       }
       case 3: {
+        // Heat Wave keeps the pressure on: never let the wanted level fall
+        // below the 3-star floor while the mission runs.
         G.police.heat = Math.max(G.police.heat, 45);
         if (G.police.wanted >= 3) {
           this.heatTimer += dt;
@@ -206,12 +267,18 @@ export class MissionSystem {
       }
       case 4: {
         if (this.stage === 1) {
-          const d = Math.hypot(pPos.x - 66, pPos.z - (-66));
-          if (d < 14) { this.stage = 2; G.hud.showDialogue('Guard: Hey! Nobody moves! Take them down, Rico!'); }
+          const d = Math.hypot(pPos.x - BANK_FRONT.x, pPos.z - BANK_FRONT.z);
+          if (d < 14) {
+            this.stage = 2;
+            G.hud.showDialogue('Guard: Hey! Nobody moves! Take them down, Rico!');
+          }
         } else if (this.stage === 2) {
-          if (this.aliveGuards().length === 0) { this.stage = 3; G.hud.toast('Vault open — grab the cash!'); }
+          if (this.aliveGuards().length === 0) {
+            this.stage = 3;
+            G.hud.toast('Vault open — grab the cash!');
+          }
         } else if (this.stage === 3) {
-          const d = Math.hypot(pPos.x - 66, pPos.z - (-70));
+          const d = Math.hypot(pPos.x - BANK_VAULT.x, pPos.z - BANK_VAULT.z);
           if (d < 5) this.completeMission(G);
         }
         // Guards shoot at Rico when he is close.
@@ -244,10 +311,11 @@ export class MissionSystem {
     this.maybeOfferFare(G);
     if (!this.fare) return;
     const point = this.fare.aboard ? this.fare.dest : this.fare.pickup;
-    if (!this.done && this.objective().target) return; // story beacon takes priority
+    // The story beacon takes priority over the fare beacon.
+    if (!this.done && this.objective().target) return;
     this.beacon.visible = true;
     this.ring.visible = true;
-    this.beacon.material.color.setHex(0x39d353);
+    this.beacon.material.color.setHex(BEACON_GREEN);
     this.beacon.position.set(point.x, 17, point.z);
     this.ring.position.set(point.x, 0.12, point.z);
     const d = Math.hypot(pPos.x - point.x, pPos.z - point.z);
@@ -263,7 +331,7 @@ export class MissionSystem {
         G.hud.showDialogue(DIALOGUE.fareDone);
         G.audio.jingle();
         this.fare = null;
-        this.beacon.material.color.setHex(0xffc832);
+        this.beacon.material.color.setHex(BEACON_YELLOW);
         G.saveGame();
       }
     }

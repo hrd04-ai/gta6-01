@@ -1,6 +1,7 @@
 // Palmera Bay: Sunset Heat — game shell. Owns the renderer, the loop, input,
-// camera, the title/pause/wasted/busted state machine and the wiring between
-// every system. The world itself lives in city.js and the other modules.
+// camera, the title / pause / wasted / busted state machine and the wiring
+// between every system. The world itself lives in city.js and the other
+// modules.
 import * as THREE from 'three';
 import { CFG } from './config.js';
 import { makeRng } from './random.js';
@@ -16,6 +17,8 @@ import { HUD } from './hud.js';
 import { stageShot } from './shots.js';
 import { loadSave, writeSave, clearSave } from './save.js';
 
+// Where Rico starts, and where the hospital and the police station send him
+// after he is wasted or busted.
 const SPAWN = { x: -22, z: 0 };
 const HOSPITAL = { x: -22, z: 66 };
 const POLICE_STATION = { x: -66, z: -22 };
@@ -84,6 +87,7 @@ export class Game {
   }
 
   // ---------- menus ----------
+
   showTitle() {
     this.state = 'title';
     const buttons = [];
@@ -94,10 +98,7 @@ export class Game {
       });
     }
     buttons.push({ label: 'New Game', onClick: () => this.startGame(false) });
-    buttons.push({
-      label: 'How to Play',
-      onClick: () => this.showHowTo(),
-    });
+    buttons.push({ label: 'How to Play', onClick: () => this.showHowTo() });
     this.hud.showMenu(
       'PALMERA BAY',
       'Sunset Heat — an open-world crime story. Steal cars, outrun the PD, run Mara\'s jobs and take the Bay Bank for $5,000. WASD move/drive · Mouse aim · Click shoot · F punch · E enter car · 1 pistol · R reload · G garage · P pause.',
@@ -160,6 +161,7 @@ export class Game {
   }
 
   // ---------- game flow ----------
+
   startGame(continueSave) {
     this.audio.ensure();
     this.audio.startMusic();
@@ -199,6 +201,7 @@ export class Game {
   }
 
   // ---------- input ----------
+
   bindInput() {
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
@@ -208,7 +211,11 @@ export class Game {
         return;
       }
       if (e.code === 'KeyP' || e.code === 'Escape') { this.showPause(); return; }
-      if (e.code === 'KeyM') { this.audio.setMuted(!this.audio.muted); this.hud.toast(this.audio.muted ? 'Sound off' : 'Sound on'); return; }
+      if (e.code === 'KeyM') {
+        this.audio.setMuted(!this.audio.muted);
+        this.hud.toast(this.audio.muted ? 'Sound off' : 'Sound on');
+        return;
+      }
       if (e.code === 'Digit1') { this.player.armed = true; this.audio.click(); }
       if (e.code === 'Digit2') { this.player.armed = false; this.audio.click(); }
       if (e.code === 'KeyR' && this.player.armed && this.player.ammo < CFG.pistolMag) {
@@ -220,6 +227,7 @@ export class Game {
       if (e.code === 'KeyG') this.tryGarage();
     });
     window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
+
     const canvas = this.renderer.domElement;
     canvas.addEventListener('mousedown', (e) => {
       this.mouseDown = true;
@@ -227,7 +235,10 @@ export class Game {
       this.lastMouse = { x: e.clientX, y: e.clientY };
       if (this.state === 'playing') this.handleShoot();
     });
-    window.addEventListener('mouseup', () => { this.mouseDown = false; this.dragging = false; });
+    window.addEventListener('mouseup', () => {
+      this.mouseDown = false;
+      this.dragging = false;
+    });
     window.addEventListener('mousemove', (e) => {
       if (!this.dragging || this.state !== 'playing') return;
       const dx = e.clientX - this.lastMouse.x;
@@ -256,7 +267,11 @@ export class Game {
       const car = player.inCar;
       player.inCar = null;
       player.mesh.visible = true;
-      player.pos.set(car.pos.x + Math.sin(car.heading + Math.PI / 2) * 3, 0, car.pos.z + Math.cos(car.heading + Math.PI / 2) * 3);
+      player.pos.set(
+        car.pos.x + Math.sin(car.heading + Math.PI / 2) * 3,
+        0,
+        car.pos.z + Math.cos(car.heading + Math.PI / 2) * 3,
+      );
       player.mesh.position.copy(player.pos);
       this.audio.setEngine(0, false);
       return;
@@ -276,14 +291,25 @@ export class Game {
     let bestD = 5;
     for (const car of this.traffic.cars) {
       const d = Math.hypot(car.pos.x - player.pos.x, car.pos.z - player.pos.z);
-      if (d < bestD && car.speed < 4) { bestD = d; best = car; }
+      if (d < bestD && car.speed < 4) {
+        bestD = d;
+        best = car;
+      }
     }
     if (best) {
       this.traffic.cars.splice(this.traffic.cars.indexOf(best), 1);
       this.scene.remove(best.mesh);
       const mesh = best.mesh;
       this.scene.add(mesh);
-      player.inCar = { mesh, pos: best.pos, heading: best.heading, speed: 0, hp: 100, color: best.color, kind: 'player' };
+      player.inCar = {
+        mesh,
+        pos: best.pos,
+        heading: best.heading,
+        speed: 0,
+        hp: 100,
+        color: best.color,
+        kind: 'player',
+      };
       player.mesh.visible = false;
       this.police.addHeat(10);
       this.hud.toast('Carjacked! The PD is on you');
@@ -295,7 +321,10 @@ export class Game {
     const g = this.city.landmarks.garage;
     const pPos = this.player.inCar ? this.player.inCar.pos : this.player.pos;
     const d = Math.hypot(pPos.x - g.x, pPos.z - g.z);
-    if (d > 12) { this.hud.toast('Get to the garage on 5th Ave to use it'); return; }
+    if (d > 12) {
+      this.hud.toast('Get to the garage on 5th Ave to use it');
+      return;
+    }
     if (this.player.inCar && this.player.inCar.hp < 100 && this.cash >= CFG.repairCost) {
       this.cash -= CFG.repairCost;
       this.player.inCar.hp = 100;
@@ -371,7 +400,10 @@ export class Game {
           t.hp -= CFG.punchDamage;
           if (t.hp <= 0 && !t.dead) {
             t.dead = true;
-            if (t.mesh) { t.mesh.rotation.z = Math.PI / 2; t.mesh.position.y = 0.35; }
+            if (t.mesh) {
+              t.mesh.rotation.z = Math.PI / 2;
+              t.mesh.position.y = 0.35;
+            }
           }
         } else {
           this.peds.knockDown(player.pos, CFG.punchRange);
@@ -387,10 +419,13 @@ export class Game {
   }
 
   // ---------- camera ----------
+
   updateCamera(dt) {
     const player = this.player;
     const focus = player.inCar ? player.inCar.pos : player.pos;
     const heading = player.inCar ? player.inCar.heading : player.heading;
+    // On foot with the pistol out, the camera follows the aim yaw; driving,
+    // it follows the car; otherwise it follows the free orbit yaw.
     const yaw = player.armed && !player.inCar ? this.cameraYaw : (player.inCar ? heading : this.cameraYaw);
     const dist = player.inCar ? 13 : 9;
     const height = player.inCar ? 5.2 : 4.2;
@@ -429,6 +464,7 @@ export class Game {
   }
 
   // ---------- loop ----------
+
   loop() {
     requestAnimationFrame(() => this.loop());
     const dt = Math.min(this.clock.getDelta(), 0.05);
@@ -475,7 +511,11 @@ export class Game {
       }
       this.city.update(dt, this.time);
       this.traffic.update(dt);
-      this.peds.update(dt, player.inCar ? player.inCar.pos : player.pos, player.inCar ? Math.abs(player.inCar.speed) : player.speed);
+      this.peds.update(
+        dt,
+        player.inCar ? player.inCar.pos : player.pos,
+        player.inCar ? Math.abs(player.inCar.speed) : player.speed,
+      );
       const policeResult = this.police.update(dt, this);
       if (policeResult.busted) {
         this.audio.setSiren(false);
@@ -485,9 +525,7 @@ export class Game {
       this.effects.update(dt);
       this.audio.setSiren(this.police.wanted > 0);
       // Wasted check.
-      if (player.health <= 0) {
-        this.showWasted();
-      }
+      if (player.health <= 0) this.showWasted();
       // Drain queued events.
       if (this.events.includes('wasted')) this.showWasted();
       if (this.events.includes('carWrecked')) { /* handled above */ }
