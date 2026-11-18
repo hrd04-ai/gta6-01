@@ -154,7 +154,7 @@ export class PoliceSystem {
       const dz = player.pos.z - cop.pos.z;
       const dist = Math.hypot(dx, dz);
       cop.heading = Math.atan2(-dz, dx);
-      const speed = player.inCar ? CFG.copRunSpeed : CFG.copRunSpeed;
+      const speed = CFG.copRunSpeed;
       cop.pos.x += Math.cos(cop.heading) * speed * dt;
       cop.pos.z += -Math.sin(cop.heading) * speed * dt;
       cop.walkPhase += dt * 9;
