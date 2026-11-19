@@ -1,169 +1,167 @@
-// Rico Vega on foot: camera-relative movement, sprint, punch, pistol with a
-// 12-round magazine, and getting in and out of cars. The player is a simple
-// articulated figure built from boxes so the game needs no external models.
-import * as THREE from 'three';
-import { CFG } from './config.js';
-import { collideWorld } from './vehicles.js';
+// The player on foot: Rico Marin, driver-for-hire in Palmera Bay.
+// Walks and runs with WASD, aims with the mouse, shoots with click,
+// punches with F, and gets in and out of cars with E. The player owns
+// health, ammo and the wanted interaction hooks; the car itself lives
+// in vehicles.js and the police in police.js.
 
-function buildRico() {
-  const group = new THREE.Group();
-  const skin = new THREE.MeshStandardMaterial({ color: 0xc98d5f, roughness: 0.8 });
-  const jacket = new THREE.MeshStandardMaterial({ color: 0xd84b2e, roughness: 0.75 });
-  const jeans = new THREE.MeshStandardMaterial({ color: 0x2a3a5a, roughness: 0.9 });
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), skin);
-  head.position.y = 1.62;
-  group.add(head);
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.33, 12, 8, 0, Math.PI * 2, 0, 1.2), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 }));
-  hair.position.y = 1.66;
-  group.add(hair);
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.78, 0.38), jacket);
-  torso.position.y = 1.05;
-  group.add(torso);
-  const legGeo = new THREE.BoxGeometry(0.26, 0.72, 0.28);
-  const legL = new THREE.Mesh(legGeo, jeans);
-  legL.position.set(0.17, 0.36, 0);
-  group.add(legL);
-  const legR = new THREE.Mesh(legGeo, jeans);
-  legR.position.set(-0.17, 0.36, 0);
-  group.add(legR);
-  const armGeo = new THREE.BoxGeometry(0.2, 0.68, 0.22);
-  const armL = new THREE.Mesh(armGeo, jacket);
-  armL.position.set(0.44, 1.05, 0);
-  group.add(armL);
-  const armR = new THREE.Mesh(armGeo, jacket);
-  armR.position.set(-0.44, 1.05, 0);
-  group.add(armR);
-  // Pistol in the right hand, visible when armed.
-  const gun = new THREE.Group();
-  const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.42), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.6 }));
-  gun.add(gunBody);
-  gun.position.set(-0.44, 0.72, 0.28);
-  gun.visible = false;
-  group.add(gun);
-  group.userData = { legL, legR, armL, armR, gun };
-  return group;
-}
+import { PLAYER, WORLD } from './config.js';
+import { clamp } from './random.js';
 
 export class Player {
-  constructor(scene) {
-    this.scene = scene;
-    this.mesh = buildRico();
-    scene.add(this.mesh);
-    this.pos = new THREE.Vector3(-22, 0, 10);
-    this.heading = Math.PI / 2;
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.angle = -Math.PI / 2;
+    this.aimAngle = -Math.PI / 2;
     this.speed = 0;
-    this.health = 100;
+    this.health = PLAYER.maxHealth;
+    this.ammo = PLAYER.pistolAmmoMax;
+    this.inCar = null; // the Car instance the player is driving, or null
+    this.moving = false;
+    this.running = false;
+    this.shootCooldown = 0;
+    this.punchCooldown = 0;
+    this.hurtFlash = 0;
+    this.dead = false;
+    this.stealProgress = 0;
+    this.stealTarget = null;
+  }
+
+  reset(x, y) {
+    this.x = x;
+    this.y = y;
+    this.angle = -Math.PI / 2;
+    this.health = PLAYER.maxHealth;
+    this.ammo = PLAYER.pistolAmmoMax;
     this.inCar = null;
-    this.armed = false;
-    this.ammo = CFG.pistolMag;
-    this.reloadTimer = 0;
-    this.punchTimer = 0;
-    this.punchQueued = false;
-    this.walkPhase = 0;
-    this.lastSafePos = this.pos.clone();
+    this.dead = false;
+    this.shootCooldown = 0;
+    this.hurtFlash = 0;
   }
 
-  reset(spawn) {
-    this.pos.copy(spawn);
-    this.heading = Math.PI / 2;
-    this.health = 100;
-    this.inCar = null;
-    this.armed = false;
-    this.ammo = CFG.pistolMag;
-    this.mesh.position.copy(this.pos);
-    this.mesh.visible = true;
-  }
-
-  aimDirection(cameraYaw) {
-    return cameraYaw;
-  }
-
-  update(dt, input, cameraYaw, colliders, effects) {
-    if (this.inCar) return;
-    if (this.punchTimer > 0) this.punchTimer -= dt;
-    if (this.reloadTimer > 0) {
-      this.reloadTimer -= dt;
-      if (this.reloadTimer <= 0) this.ammo = CFG.pistolMag;
+  takeDamage(amount) {
+    if (this.dead) return;
+    this.health -= amount;
+    this.hurtFlash = 0.35;
+    if (this.health <= 0) {
+      this.health = 0;
+      this.dead = true;
     }
-    // Camera-relative movement.
-    const fwd = { x: Math.sin(cameraYaw), z: Math.cos(cameraYaw) };
-    const right = { x: Math.cos(cameraYaw), z: -Math.sin(cameraYaw) };
-    let mx = 0;
-    let mz = 0;
-    if (input.up) { mx += fwd.x; mz += fwd.z; }
-    if (input.down) { mx -= fwd.x; mz -= fwd.z; }
-    if (input.left) { mx -= right.x; mz -= right.z; }
-    if (input.right) { mx += right.x; mz += right.z; }
-    const len = Math.hypot(mx, mz);
-    const sprint = input.sprint && len > 0;
-    const target = len > 0 ? (sprint ? CFG.sprintSpeed : CFG.walkSpeed) : 0;
-    this.speed += (target - this.speed) * Math.min(1, dt * 10);
-    if (len > 0) {
-      mx /= len;
-      mz /= len;
-      this.heading = Math.atan2(-mz, mx);
-      const nx = this.pos.x + mx * this.speed * dt;
-      const nz = this.pos.z + mz * this.speed * dt;
-      const hit = collideWorld(nx, nz, 0.7, colliders);
-      if (!hit) {
-        this.pos.x = THREE.MathUtils.clamp(nx, -CFG.worldHalf, CFG.harborEdge - 2);
-        this.pos.z = THREE.MathUtils.clamp(nz, -CFG.worldHalf, CFG.bayEdge - 2);
-        this.lastSafePos.copy(this.pos);
-      }
-      this.walkPhase += dt * this.speed * 1.9;
-    }
-    this.mesh.position.copy(this.pos);
-    this.mesh.rotation.y = -this.heading + Math.PI / 2;
-    const swing = Math.sin(this.walkPhase) * Math.min(1, this.speed / CFG.walkSpeed) * 0.55;
-    const u = this.mesh.userData;
-    u.legL.rotation.x = swing;
-    u.legR.rotation.x = -swing;
-    u.armL.rotation.x = this.armed ? -1.2 : -swing * 0.7;
-    u.armR.rotation.x = this.punchTimer > 0.25 ? -1.9 : swing * 0.7;
-    u.gun.visible = this.armed;
-    if (this.punchQueued && this.punchTimer <= 0) {
-      this.punchQueued = false;
-      this.punchTimer = 0.45;
-      return 'punch';
-    }
-    return null;
-  }
-
-  queuePunch() {
-    if (!this.inCar) this.punchQueued = true;
-  }
-
-  // Hitscan shot toward the camera aim. Returns the hit point or null.
-  shoot(camera, targets) {
-    if (this.inCar || this.armed === false || this.reloadTimer > 0 || this.ammo <= 0) return null;
-    this.ammo--;
-    const origin = new THREE.Vector3(this.pos.x, 1.45, this.pos.z);
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
-    dir.y = 0;
-    dir.normalize();
-    let best = null;
-    let bestD = CFG.pistolRange;
-    for (const t of targets) {
-      if (t.dead || t.down) continue;
-      const dx = t.pos.x - origin.x;
-      const dz = t.pos.z - origin.z;
-      const along = dx * dir.x + dz * dir.z;
-      if (along < 0 || along > bestD) continue;
-      const side = Math.abs(dx * -dir.z + dz * dir.x);
-      if (side < 1.6) { bestD = along; best = t; }
-    }
-    const hitPoint = origin.clone().add(dir.clone().multiplyScalar(best ? bestD : CFG.pistolRange));
-    return { target: best, point: hitPoint };
-  }
-
-  takeDamage(amount, effects) {
-    this.health = Math.max(0, this.health - amount);
-    effects.addShake(0.6);
-    return this.health <= 0;
   }
 
   heal(amount) {
-    this.health = Math.min(100, this.health + amount);
+    this.health = Math.min(PLAYER.maxHealth, this.health + amount);
+  }
+
+  update(dt, input, city, cars, effects) {
+    if (this.dead || this.inCar) {
+      this.shootCooldown = Math.max(0, this.shootCooldown - dt);
+      return;
+    }
+    this.hurtFlash = Math.max(0, this.hurtFlash - dt);
+    this.shootCooldown = Math.max(0, this.shootCooldown - dt);
+    this.punchCooldown = Math.max(0, this.punchCooldown - dt);
+
+    // Aim follows the mouse in world space.
+    this.aimAngle = Math.atan2(input.mouseWorldY - this.y, input.mouseWorldX - this.x);
+
+    let mx = 0;
+    let my = 0;
+    if (input.keys.has('KeyW') || input.keys.has('ArrowUp')) my -= 1;
+    if (input.keys.has('KeyS') || input.keys.has('ArrowDown')) my += 1;
+    if (input.keys.has('KeyA') || input.keys.has('ArrowLeft')) mx -= 1;
+    if (input.keys.has('KeyD') || input.keys.has('ArrowRight')) mx += 1;
+    this.moving = mx !== 0 || my !== 0;
+    this.running = input.keys.has('ShiftLeft') || input.keys.has('ShiftRight');
+
+    if (this.moving) {
+      const len = Math.hypot(mx, my);
+      const speed = this.running ? PLAYER.runSpeed : PLAYER.walkSpeed;
+      const nx = this.x + (mx / len) * speed * dt;
+      const ny = this.y + (my / len) * speed * dt;
+      this.angle = Math.atan2(my, mx);
+      // Slide along walls: try the full step, then each axis alone.
+      if (city.isWalkable(nx, this.y)) this.x = nx;
+      if (city.isWalkable(this.x, ny)) this.y = ny;
+      this.x = clamp(this.x, 24, WORLD.width - 24);
+      this.y = clamp(this.y, 24, WORLD.height - 24);
+      city.resolveBuildingCollision(this, PLAYER.radius);
+      void effects;
+    }
+  }
+
+  // Returns a shot {x, y, angle} when the trigger is pulled, else null.
+  tryShoot(input) {
+    if (this.dead || this.inCar) return null;
+    if (this.shootCooldown > 0 || this.ammo <= 0) return null;
+    if (!input.mouseDown) return null;
+    this.shootCooldown = PLAYER.pistolRate;
+    this.ammo -= 1;
+    this.aimAngle = Math.atan2(input.mouseWorldY - this.y, input.mouseWorldX - this.x);
+    return {
+      x: this.x + Math.cos(this.aimAngle) * 20,
+      y: this.y + Math.sin(this.aimAngle) * 20,
+      angle: this.aimAngle,
+    };
+  }
+
+  tryPunch(input) {
+    if (this.dead || this.inCar) return false;
+    if (this.punchCooldown > 0) return false;
+    if (!input.keys.has('KeyF')) return false;
+    this.punchCooldown = 0.45;
+    return true;
+  }
+
+  // Nearest car the player could enter, within interaction range.
+  nearbyCar(cars) {
+    let best = null;
+    let bestD = 74;
+    for (const car of cars) {
+      const d = Math.hypot(car.x - this.x, car.y - this.y);
+      if (d < bestD) {
+        bestD = d;
+        best = car;
+      }
+    }
+    return best;
+  }
+
+  draw(ctx, time) {
+    if (this.inCar || this.dead) return;
+    const bob = this.moving ? Math.sin(time * 11) * 2 : 0;
+    ctx.save();
+    ctx.translate(this.x, this.y + bob * 0.4);
+    // Shadow.
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 8, 13, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Body: sunset jacket, dark jeans.
+    ctx.rotate(this.angle);
+    ctx.fillStyle = '#2b2f4a';
+    ctx.fillRect(-7, -8, 15, 16); // legs
+    ctx.fillStyle = '#ff5da2';
+    ctx.beginPath();
+    ctx.arc(0, 0, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(2, -4, 9, 8); // jacket stripe
+    // Pistol arm points at the aim angle.
+    ctx.rotate(this.aimAngle - this.angle);
+    ctx.fillStyle = '#2b2f4a';
+    ctx.fillRect(6, -3, 14, 6);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(16, -2, 10, 4);
+    ctx.restore();
+    if (this.hurtFlash > 0) {
+      ctx.save();
+      ctx.globalAlpha = this.hurtFlash * 1.4;
+      ctx.fillStyle = '#ff2d55';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 17, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }

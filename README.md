@@ -1,54 +1,100 @@
-[![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
-[![rank](https://make.fun/badge/gta6-01/hrd04-ai/gta6-01/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
-[![reward](https://make.fun/badge/gta6-01/hrd04-ai/gta6-01/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
-
 # Palmera Bay: Sunset Heat
 
-An original open-world crime game in the spirit of GTA 6, running offline in
-a desktop browser from static files. Built for the make.fun gta6-01 bounty.
+A top-down open-city crime game for the make.fun **gta6-01** competition
+("Make GTA 6"), built from scratch in plain JavaScript with no libraries
+and no network requests. Everything — the city, the people, the cars,
+the story, the art and the sound — is original.
 
 ## The game
 
-Rico Vega arrives in Palmera Bay, a sun-soaked coastal city of 7×7 road
-blocks, a southern bay with docks and boats, and an eastern container harbor.
-Mara, his fixer, hands him five jobs: steal a car, pick up a package in the
-Old Town alley, run a timed 75-second Harbor Run, survive 60 seconds at 3
-stars, and rob the Bay Bank of $5,000 past three armed guards. Between jobs,
-side fares pay $45 a ride and the garage on 5th Ave repairs cars ($80) and
-cleans wanted levels ($200).
+You are **Rico Marín**, a driver-for-hire in **Palmera Bay**, a sun-soaked
+waterfront city at golden hour. Steal cars, outrun the Palmera Bay PD,
+and run five story jobs for fixer **Vera Solano** (and one sunset tour
+for Tommy Waves):
 
-- **On foot:** camera-relative WASD, sprint, punch (F), pistol with a
-  12-round magazine (1 to draw, click to shoot, R to reload)
-- **Driving:** arcade physics with handbrake slides, 16 traffic cars that
-  obey lights and queue, 14 parked cars to steal (press E)
-- **Police:** 0–5 wanted stars, pursuit cars that ram, foot cops that chase
-  and bust, heat that cools when Rico behaves
-- **City:** ~360 procedural buildings, palms, lamps, billboards, a plaza
-  fountain, bank tower, safehouse, garage, police station and hospital
-- **HUD:** stars, cash, health, speed, weapon, objective with timer and
-  distance, live 2D minimap, dialogue from Mara, toasts
-- **Sound:** fully synthesized WebAudio — engine, sirens, gunshots, a bass
-  groove; no audio files
-- **Save:** autosaves after every mission; continue from the title screen
+1. **Sunset Pickup** ($400) — move a package from Vera's garage to the pier.
+2. **Hot Wheels** ($900) — steal a Sunset GT off Marina Row, deliver it to the chop shop.
+3. **Beach Run** ($750) — collect three tourists along the boardwalk before the tour leaves.
+4. **Heat Wave** ($1,400) — shake a three-star tail, then run a package to the north gate.
+5. **The Big Score** ($3,500) — hit the Bay Bank and vanish to the safehouse.
 
-## Play it
+## Systems
+
+- **Open city** — a procedural grid city with roads, buildings, parks,
+  plazas, a beach, a pier and a lighthouse, all generated from a seed.
+- **Driving** — arcade car physics with drift, skid marks and damage;
+  steal any parked or traffic car (hold E), police cruisers included in
+  the chase, not in the garage.
+- **On foot** — walk/run, mouse-aim pistol combat, punching, and getting
+  in and out of cars.
+- **Wanted system** — 0–5 stars. Crimes raise the heat; police cruisers
+  and foot cops hunt you; staying unseen cools it down. Get caught on
+  foot and you are busted.
+- **Traffic & pedestrians** — cars cruise the roads, walkers stroll the
+  sidewalks and the beachfront, and both react to gunfire and speeding cars.
+- **HUD & minimap** — cash, health, car health, wanted stars, mission
+  objective with a live marker, and a minimap with police and objective blips.
+- **Sound** — fully synthesised WebAudio: engine hum, sirens, gunshots,
+  crashes and a lazy sunset-drive music loop. No audio files.
+- **Save** — cash, completed jobs and best stats persist in localStorage.
+
+## Controls
+
+| Key | Action |
+| --- | --- |
+| W A S D / arrows | Walk / drive |
+| Shift | Run on foot |
+| Mouse | Aim |
+| Click | Shoot pistol |
+| F | Punch |
+| E (hold) | Steal / enter car, E again to get out |
+| Tab | Job board |
+| P | Pause |
+| M | Mute |
+| R | Restart after busted / wasted |
+
+## Run it
+
+Serve `game/` with any static server and open `index.html`:
 
 ```sh
 node serve.ts
-# open http://localhost:8080
+# then open http://localhost:8080
 ```
 
-## Hand it in
+Or, from the repository root, build the submission dossier:
 
 ```sh
 mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 ```
 
-`main.ts` copies `game/` and `screenshots/` to `/output` and writes
-`/output/dossier.json` with the vendored make.fun library.
+## Layout
 
-## Tech
+```
+game/
+  index.html        page shell + menu overlay
+  style.css         page and menu styling
+  src/
+    main.js         game loop, camera, input, combat, wiring
+    config.js       tuning, palette, mission definitions
+    city.js         procedural city generation + minimap
+    random.js       seeded RNG + math helpers
+    player.js       on-foot movement, aiming, shooting
+    vehicles.js     car physics, traffic AI, parked cars
+    pedestrians.js  walkers, tourists, fleeing
+    police.js       wanted stars, cruisers, foot cops, busts
+    missions.js     five-job story chain
+    hud.js          HUD, minimap, screens
+    audio.js        synthesised WebAudio sound + music
+    effects.js      particles, skid marks, shockwaves
+    save.js         localStorage progress
+    shots.js        ?shot= staging for screenshots
+main.ts             hands game/ + screenshots/ to /output with a dossier
+serve.ts            tiny static server for local play
+vendor/
+  makefun-game.ts   the kit's dossier library, unchanged
+```
 
-three.js r187 (vendored as `game/vendor/three/three.module.min.js`), plain ES
-modules, no build step, no network requests. Screenshots are real renders of
-the game in headless Chromium, staged through `?shot=cover|street|mission|combat`.
+## License
+
+MIT — see `LICENSE`.

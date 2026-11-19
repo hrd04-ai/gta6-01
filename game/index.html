@@ -3,48 +3,60 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Palmera Bay: Sunset Heat</title>
-<link rel="icon" href="data:,">
-<link rel="stylesheet" href="./style.css">
-<script type="importmap">
-{ "imports": { "three": "./vendor/three/three.module.min.js" } }
-</script>
+<title>Palmera Bay: Sunset Heat — an open-city crime game</title>
+<meta name="description" content="Palmera Bay: Sunset Heat — a top-down open-city crime game. Steal cars, outrun the Palmera Bay PD, and run five story jobs for Vera Solano as the sun goes down.">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="game-root"></div>
+<main id="stage">
+  <canvas id="game" width="1280" height="800" aria-label="Palmera Bay: Sunset Heat game canvas"></canvas>
 
-<div id="hud" class="hidden-until-play">
-  <div id="hud-top-left">
-    <div id="hud-stars">☆☆☆☆☆</div>
-    <div id="hud-cash">$120</div>
-    <div id="hud-health"><div id="hud-health-fill"></div><span id="hud-health-text">HP 100</span></div>
+  <div id="menu" class="overlay">
+    <div class="panel">
+      <h1 id="menu-title">PALMERA BAY</h1>
+      <p id="menu-sub" class="tagline">SUNSET HEAT — an open-city crime story</p>
+      <p class="intro">
+        Rico Marín drives for whoever pays. Tonight the bay is gold, the cops are
+        restless, and Vera Solano has five jobs that pay real money. Steal a car,
+        lose the heat, and bring the package home.
+      </p>
+      <div class="buttons">
+        <button id="start-btn" class="primary" type="button">Start game</button>
+        <button id="continue-btn" type="button">Continue free roam</button>
+      </div>
+      <h2>Jobs — pick one to start it</h2>
+      <ul class="jobs">
+        <li><button type="button" data-mission="sunset-pickup">1 · Sunset Pickup — $400</button></li>
+        <li><button type="button" data-mission="hot-wheels">2 · Hot Wheels — $900</button></li>
+        <li><button type="button" data-mission="beach-run">3 · Beach Run — $750</button></li>
+        <li><button type="button" data-mission="heat-wave">4 · Heat Wave — $1,400</button></li>
+        <li><button type="button" data-mission="the-big-score">5 · The Big Score — $3,500</button></li>
+      </ul>
+      <h2>Controls</h2>
+      <dl class="controls">
+        <div><dt>W A S D / arrows</dt><dd>Walk / drive</dd></div>
+        <div><dt>Shift</dt><dd>Run on foot</dd></div>
+        <div><dt>Mouse</dt><dd>Aim</dd></div>
+        <div><dt>Click</dt><dd>Shoot pistol</dd></div>
+        <div><dt>F</dt><dd>Punch</dd></div>
+        <div><dt>E (hold)</dt><dd>Steal / enter car · E again to get out</dd></div>
+        <div><dt>Tab</dt><dd>Job board</dd></div>
+        <div><dt>P</dt><dd>Pause</dd></div>
+        <div><dt>M</dt><dd>Mute sound</dd></div>
+        <div><dt>R</dt><dd>Restart after busted / wasted</dd></div>
+      </dl>
+      <p class="fineprint">
+        A fully original game. Palmera Bay, Rico Marín, Vera Solano and every
+        street, car and song are invented for this entry — nothing is taken
+        from any commercial game. Runs offline from these files alone.
+      </p>
+    </div>
   </div>
-  <div id="hud-top-center">
-    <div id="hud-mission">MISSION 1/5 — Hot Wheels</div>
-    <div id="hud-objective">Steal a car</div>
-  </div>
-  <div id="hud-bottom-left">
-    <div id="hud-speed">0 km/h</div>
-    <div id="hud-weapon">FISTS — press 1 for pistol</div>
-  </div>
-  <div id="hud-bottom-right">
-    <canvas id="minimap" width="168" height="168"></canvas>
-  </div>
-  <div id="crosshair" class="hidden">+</div>
-  <div id="dialogue" class="hidden"><span id="dialogue-text"></span></div>
-  <div id="toasts"></div>
-  <div id="damage-flash"></div>
-</div>
-
-<div id="menu">
-  <div id="menu-panel">
-    <h1 id="menu-title">PALMERA BAY</h1>
-    <p id="menu-text"></p>
-    <div id="menu-buttons"></div>
-    <p class="menu-foot">WASD move / drive · Mouse aim · Click shoot · F punch · E enter car · 1 pistol · R reload · G garage · P pause</p>
-  </div>
-</div>
-
-<script type="module" src="./src/main.js"></script>
+</main>
+<noscript><p style="color:#fff;text-align:center">Palmera Bay: Sunset Heat needs JavaScript to play.</p></noscript>
+<script type="module">
+import { bootGame } from './src/main.js';
+bootGame(document.getElementById('game'));
+</script>
 </body>
 </html>

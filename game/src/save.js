@@ -1,37 +1,62 @@
-// Save / load through localStorage. Autosaves after each mission and on exit
-// to the pause menu; the title screen offers Continue when a save exists.
-const KEY = 'palmera-bay-save-v1';
+// Save and load for Palmera Bay: Sunset Heat.
+// Progress lives in localStorage as one small JSON document: cash,
+// completed missions, best stats and settings. Nothing else is kept,
+// and a corrupt document falls back to a fresh start instead of
+// crashing the game.
+
+import { SAVE_KEY, ECONOMY } from './config.js';
+
+export function defaultSave() {
+  return {
+    version: 1,
+    cash: ECONOMY.startCash,
+    completedMissions: [],
+    totalEarned: 0,
+    missionsDone: 0,
+    carsStolen: 0,
+    bestWanted: 0,
+    playSeconds: 0,
+    muted: false,
+    musicOn: true,
+  };
+}
 
 export function loadSave() {
   try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (!data || typeof data.mission !== 'number') return null;
-    return data;
+    const raw = window.localStorage.getItem(SAVE_KEY);
+    if (!raw) return defaultSave();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return defaultSave();
+    const save = defaultSave();
+    for (const key of Object.keys(save)) {
+      if (key in parsed) save[key] = parsed[key];
+    }
+    if (!Array.isArray(save.completedMissions)) save.completedMissions = [];
+    return save;
   } catch {
-    return null;
+    return defaultSave();
   }
 }
 
-export function writeSave(state) {
+export function writeSave(save) {
   try {
-    const data = {
-      mission: state.missionIndex,
-      cash: Math.round(state.cash),
-      px: +state.player.pos.x.toFixed(1),
-      pz: +state.player.pos.z.toFixed(1),
-      wanted: state.wanted,
-      fares: state.faresDone,
-      savedAt: Date.now(),
-    };
-    window.localStorage.setItem(KEY, JSON.stringify(data));
+    window.localStorage.setItem(SAVE_KEY, JSON.stringify(save));
     return true;
   } catch {
     return false;
   }
 }
 
-export function clearSave() {
-  try { window.localStorage.removeItem(KEY); } catch { /* storage unavailable */ }
+export function eraseSave() {
+  try {
+    window.localStorage.removeItem(SAVE_KEY);
+  } catch {
+    // Storage may be unavailable in a sandboxed frame; ignore.
+  }
+  return defaultSave();
+}
+
+export function missionCompleted(save, missionId) {
+  if (!save.completedMissions.includes(missionId)) save.completedMissions.push(missionId);
+  save.missionsDone = save.completedMissions.length;
 }

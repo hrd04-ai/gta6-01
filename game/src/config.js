@@ -1,119 +1,164 @@
-// Palmera Bay — world constants, tuning and mission data.
-// One source of truth for every system: city layout, vehicles, police, economy.
-export const CFG = {
-  // City layout: 7 roads each way, 44 units apart; blocks sit between roads.
-  roadSpacing: 44,
-  roadHalf: 7,
-  roadCount: 7,
-  blockSize: 30,
-  worldHalf: 176,
-  // Bay (south, +z) and harbor (east, +x).
-  bayEdge: 154,
-  harborEdge: 154,
-  // Driving.
-  carTopSpeed: 42, // units/s ~ 150 km/h at our scale
-  carAccel: 26,
-  carBrake: 46,
-  carReverseSpeed: 14,
-  carTurn: 1.9,
-  carGrip: 6.5,
-  trafficCount: 16,
-  parkedCount: 14,
-  pedCount: 26,
-  // On foot.
-  walkSpeed: 6,
-  sprintSpeed: 10,
-  punchRange: 2.4,
-  punchDamage: 34,
-  pistolDamage: 34,
-  pistolMag: 12,
-  pistolRange: 90,
-  // Police.
-  maxWanted: 5,
-  heatDecay: 0.045, // wanted heat lost per second while clean
-  bustRange: 2.2,
-  copRunSpeed: 7.2,
-  // Economy.
-  repairCost: 80,
-  cleanCost: 200,
-  fareReward: 45,
-  startCash: 120,
-  // Missions.
-  missionReward: [250, 400, 650, 900, 5000],
-  harborRunTime: 75,
-  heatWaveTime: 60,
-  // Visuals.
-  sunColor: 0xffe3b3,
-  skyTop: 0x7fb4e8,
-  skyBottom: 0xffd9a0,
-  fogColor: 0xf2c98f,
-  fogNear: 120,
-  fogFar: 520,
-  // Screenshots.
-  shotSeed: 7,
+// Palmera Bay: Sunset Heat — tuning, palette and shared constants.
+// Every number the rest of the game balances against lives here so a
+// single edit re-tunes driving, police, missions and the economy together.
+
+export const WORLD = {
+  width: 3600,
+  height: 2800,
+  block: 420, // distance between road centre lines
+  roadWidth: 92,
+  beachY: 2440, // everything south of this line is sand and sea
+  seaY: 2620,
 };
 
-export const DISTRICTS = [
-  { name: 'Marina Row', color: 0x2e6f8e },
-  { name: 'Old Town', color: 0x8e6f2e },
-  { name: 'Downtown', color: 0x5a5f6e },
-  { name: 'Harbor East', color: 0x6e3a2e },
-  { name: 'Palms North', color: 0x2e8e5a },
-];
+export const PALETTE = {
+  skyTop: '#2b1d5e',
+  skyMid: '#b8457c',
+  skyLow: '#ff9a5c',
+  sunCore: '#ffd166',
+  sunGlow: '#ff7b54',
+  asphalt: '#2e2a33',
+  asphaltEdge: '#4a4450',
+  laneDash: '#e8d27a',
+  sidewalk: '#8a7f8d',
+  grass: '#3f7d4e',
+  sand: '#e8c98a',
+  sea: '#1d6f8e',
+  seaDeep: '#155a75',
+  buildingRoof: '#6b4a5e',
+  buildingRoof2: '#7d5a6b',
+  buildingRoof3: '#4f3d5a',
+  neonPink: '#ff5da2',
+  neonCyan: '#37e0d8',
+  neonGold: '#ffc857',
+  hudBg: 'rgba(12, 8, 24, 0.72)',
+  hudText: '#fff3e0',
+  hudAccent: '#ffb347',
+};
 
-// Mission script: name, Mara's briefing, objective text, reward.
+export const PLAYER = {
+  walkSpeed: 205,
+  runSpeed: 305,
+  radius: 13,
+  maxHealth: 100,
+  pistolDamage: 34,
+  pistolRange: 460,
+  pistolRate: 0.22, // seconds between shots
+  pistolAmmoMax: 48,
+  punchDamage: 12,
+  punchRange: 34,
+};
+
+export const CAR = {
+  accel: 430,
+  brake: 620,
+  reverseAccel: 260,
+  maxSpeed: 560,
+  maxReverse: 180,
+  steerRate: 2.9,
+  grip: 3.4,
+  drag: 0.55,
+  radius: 26,
+  stealTime: 0.9, // seconds holding E beside a parked car
+};
+
+export const TRAFFIC = {
+  count: 22,
+  cruiseSpeed: 150,
+  cruiseSpeedFast: 210,
+  spawnMargin: 700,
+};
+
+export const PEDS = {
+  count: 42,
+  walkSpeed: 46,
+  fleeSpeed: 165,
+};
+
+export const POLICE = {
+  maxStars: 5,
+  decayDelay: 9, // seconds unseen before a star decays
+  spawnInterval: [2.6, 2.1, 1.7, 1.4, 1.1], // per star level
+  maxUnits: [0, 2, 4, 6, 8, 10],
+  pursuitSpeed: 520,
+  ramDamage: 9,
+  bustRadius: 30,
+  bustTime: 2.2, // seconds pinned beside the player on foot to bust
+  sightRange: 640,
+};
+
 export const MISSIONS = [
   {
+    id: 'sunset-pickup',
+    name: 'Sunset Pickup',
+    giver: 'Vera Solano',
+    brief: 'Vera needs a package moved from her garage to the pier before the tide turns. Drive there, grab it, bring it back to the water.',
+    payout: 400,
+    steps: [
+      { kind: 'goto', label: 'Drive to Vera\u2019s garage', x: 630, y: 630 },
+      { kind: 'pickup', label: 'Pick up the package', x: 630, y: 630 },
+      { kind: 'goto', label: 'Deliver to the old pier', x: 3300, y: 2520 },
+    ],
+  },
+  {
+    id: 'hot-wheels',
     name: 'Hot Wheels',
-    brief: 'Mara: Rico, you need wheels. Any car on the street is yours — walk up and take it.',
-    objective: 'Steal a car',
-    reward: 250,
+    giver: 'Vera Solano',
+    brief: 'A Sunset GT is parked on Marina Row. Take it. The owner will call the cops, so bring it to the chop shop fast.',
+    payout: 900,
+    steps: [
+      { kind: 'steal', label: 'Steal the Sunset GT on Marina Row', x: 1470, y: 1050 },
+      { kind: 'deliver-car', label: 'Deliver the GT to the chop shop', x: 2730, y: 1890 },
+    ],
   },
   {
-    name: 'Alley Pickup',
-    brief: 'Mara: A package is waiting in the alley behind the Old Town market. Drive over and grab it.',
-    objective: 'Pick up the package in the alley',
-    reward: 400,
+    id: 'beach-run',
+    name: 'Beach Run',
+    giver: 'Tommy Waves',
+    brief: 'Three tourists are waiting along the boardwalk and the sunset tour leaves in four minutes. Collect them all, then drop them at the lighthouse.',
+    payout: 750,
+    timeLimit: 240,
+    steps: [
+      { kind: 'pickup', label: 'Pick up tourist 1 — boardwalk', x: 1050, y: 2520 },
+      { kind: 'pickup', label: 'Pick up tourist 2 — surf shack', x: 1890, y: 2520 },
+      { kind: 'pickup', label: 'Pick up tourist 3 — pier cafe', x: 2730, y: 2520 },
+      { kind: 'goto', label: 'Drop them at the lighthouse', x: 3400, y: 2350 },
+    ],
   },
   {
-    name: 'Harbor Run',
-    brief: 'Mara: The buyer is at the east harbor and he does not wait. 75 seconds, Rico. Go!',
-    objective: 'Reach the harbor beacon in time',
-    reward: 650,
-  },
-  {
+    id: 'heat-wave',
     name: 'Heat Wave',
-    brief: 'Mara: Cops are all over you. Lose them or outlast them — survive 60 seconds at 3 stars.',
-    objective: 'Survive 60 seconds at 3 stars',
-    reward: 900,
+    giver: 'Vera Solano',
+    brief: 'The heat is on. Shake a three-star tail, then run the package across town to the north gate. No shortcuts through the cops.',
+    payout: 1400,
+    steps: [
+      { kind: 'evade', label: 'Lose the cops — drop to zero stars', x: 0, y: 0 },
+      { kind: 'goto', label: 'Deliver the package to the north gate', x: 1890, y: 210 },
+    ],
   },
   {
-    name: 'Bay Bank Job',
-    brief: 'Mara: The big one. Bay Bank, three guards, one vault. Take the $5,000 and get out clean.',
-    objective: 'Clear the bank guards and take the cash',
-    reward: 5000,
+    id: 'the-big-score',
+    name: 'The Big Score',
+    giver: 'Vera Solano',
+    brief: 'One job, one night: hit the Bay Bank on Coral Avenue, grab the cash, and vanish to the safehouse while the whole city chases you.',
+    payout: 3500,
+    steps: [
+      { kind: 'goto', label: 'Reach the Bay Bank', x: 2310, y: 1050 },
+      { kind: 'rob', label: 'Hold up the bank — stay inside the vault ring', x: 2310, y: 1050 },
+      { kind: 'goto', label: 'Escape to the safehouse', x: 420, y: 2100 },
+    ],
   },
 ];
 
-export const DIALOGUE = {
-  missionDone: [
-    'Mara: Clean work, Rico. Payment is in your pocket.',
-    'Mara: You drive like the bay is on fire. I like it.',
-    'Mara: Another one down. Palmera Bay is ours, little by little.',
-  ],
-  busted: 'The Palmera Bay PD has you. Bail posted — but it cost you.',
-  wasted: 'Rico is down. The bay keeps moving without him.',
-  fareDone: 'Passenger: Keep the change, kid. You drive alright.',
-  garageRepair: 'Mechanic: Patched up. Good as new — well, almost.',
-  garageClean: 'Fixer: Your plates are clean. The cops lost the scent.',
+export const ECONOMY = {
+  startCash: 120,
+  pedHitFine: 0,
+  carTheftStars: 1,
+  pedHitStars: 1,
+  shootStars: 2,
+  killCopStars: 2,
+  hospitalFee: 150,
+  impoundFee: 0,
 };
 
-export const CAR_COLORS = [
-  0xc22e2e, 0x2e5ec2, 0xd8b13a, 0x2ea36b, 0x7a3ec2,
-  0xd86a1e, 0x222831, 0xe8e8e8, 0x1e9e9e, 0x8e2e5a,
-];
-
-export const PED_SHIRTS = [
-  0xd95f4b, 0x4b8fd9, 0x7ed957, 0xe8c84b, 0xb06ad9,
-  0xeeeeee, 0x333a44, 0xd94b8f, 0x4bd9c0, 0xe07b39,
-];
+export const SAVE_KEY = 'palmera-bay-sunset-heat-save-v1';

@@ -1,2 +1,6 @@
-out
-node_modules
+# Build output, editor junk and local clutter — never part of the entry.
+out/
+node_modules/
+.DS_Store
+Thumbs.db
+*.log

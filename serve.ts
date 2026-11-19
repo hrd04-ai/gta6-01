@@ -1,34 +1,76 @@
-// Tiny static server for local play-testing: serves this repository's root
-// so http://localhost:8080 opens game/index.html. No dependencies, no build.
+// A tiny static server for game/ (Node 22, standard library only).
+//
+// Development convenience, not a production server: run `node serve.ts`
+// and open http://localhost:8080 to play Palmera Bay: Sunset Heat in a
+// desktop browser. It serves only files under game/, sends the MIME
+// types a browser game needs, and refuses any path that escapes the
+// game directory.
+
+import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('.', import.meta.url));
-const types = {
-  '.html': 'text/html',
-  '.js': 'text/javascript',
-  '.mjs': 'text/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-  '.jpg': 'image/jpeg',
+const gameRoot = resolve(fileURLToPath(new URL('./game', import.meta.url)));
+
+const args = process.argv.slice(2);
+const portFlag = args.indexOf('--port');
+const wanted = portFlag === -1 ? 8080 : Number(args[portFlag + 1]);
+const port = Number.isInteger(wanted) && wanted > 0 && wanted < 65536 ? wanted : 8080;
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.txt': 'text/plain; charset=utf-8',
 };
 
-const server = createServer(async (req, res) => {
-  try {
-    let path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-    if (path === '/') path = '/game/index.html';
-    const file = join(root, normalize(path).replace(/^(\.\.[/\\])+/, ''));
-    const data = await readFile(file);
-    res.writeHead(200, { 'content-type': types[extname(file)] ?? 'application/octet-stream' });
-    res.end(data);
-  } catch {
-    res.writeHead(404);
-    res.end('not found');
-  }
-});
+function contentType(file) {
+  return MIME_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
+}
 
-const port = Number(process.env.PORT ?? 8080);
-server.listen(port, () => console.log(`Palmera Bay at http://localhost:${port}/`));
+createServer((request, response) => {
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://localhost').pathname);
+  } catch {
+    response.writeHead(400).end('bad request');
+    return;
+  }
+  if (pathname.endsWith('/')) pathname += 'index.html';
+  const file = resolve(join(gameRoot, normalize(pathname)));
+  if (file !== gameRoot && !file.startsWith(gameRoot + sep)) {
+    response.writeHead(403).end('forbidden');
+    return;
+  }
+  let size;
+  try {
+    const stats = statSync(file);
+    if (!stats.isFile()) throw new Error('not a file');
+    size = stats.size;
+  } catch {
+    response.writeHead(404).end('not found');
+    return;
+  }
+  response.writeHead(200, {
+    'content-type': contentType(file),
+    'content-length': size,
+    'cache-control': 'no-store',
+  });
+  createReadStream(file).pipe(response);
+}).listen(port, '127.0.0.1', () => {
+  console.log(`Palmera Bay: Sunset Heat — game/ is on http://localhost:${port}`);
+});
