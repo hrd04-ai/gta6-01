@@ -4,121 +4,111 @@
 
 # Palmera Bay: Sunset Heat
 
-A top-down open-city crime game set in Palmera Bay, a sun-baked coastal city where the streets never cool down. Steal cars, outrun the police, run missions for the crew, and build your reputation — one sunset at a time.
-
-You play a small-time hustler trying to make a name in Palmera Bay. Take jobs from fixers, grab whatever wheels you can find, and keep the heat off your tail. The city is alive: traffic flows, pedestrians scatter, sirens close in, and every choice raises or lowers your wanted level.
+A top-down open-city crime game set in Palmera Bay, a sun-baked coastal city where every street is an opportunity and every siren is a warning. Steal cars, outrun the police, take on missions from the city's fixers, and build your reputation — one sunset at a time.
 
 ![Cover](screenshots/1-cover.jpg)
-![Street](screenshots/2-street.jpg)
-![Mission](screenshots/3-mission.jpg)
-![Combat](screenshots/4-combat.jpg)
+
+## What is it?
+
+Palmera Bay: Sunset Heat is a 2D top-down open-world game inspired by classic GTA-style gameplay. You are free to roam the city on foot or behind the wheel: cruise the boulevards, grab any parked car, dodge traffic, and complete missions to earn cash and respect. The hotter your wanted level burns, the harder the Palmera Bay Police Department comes after you.
+
+The game runs entirely in the browser — no install, no account, no build step.
+
+## Features
+
+- **Open city** — a living map of streets, intersections, beaches, and back alleys, all rendered top-down with a warm sunset palette.
+- **Driving** — steal any car on the street, accelerate, brake, and drift around corners. Every vehicle handles differently, from beat-up sedans to fast sports cars.
+- **On-foot action** — walk the sidewalks, run from trouble, and hop in and out of cars whenever you like.
+- **Police & wanted system** — cause chaos and your wanted level climbs. Patrol cars give chase, roadblocks appear, and the heat only cools down when you lay low.
+- **Missions** — pick up jobs from fixers around the city: getaways, deliveries, chases, and timed runs. Finish them to earn cash and unlock harder work.
+- **Pedestrians & traffic** — the city is alive. Pedestrians stroll the sidewalks, traffic flows through the streets, and the world reacts to what you do.
+- **HUD** — speed, cash, wanted stars, mission tracker, and a minimap keep you oriented at a glance.
+- **Audio** — engine hums, sirens, and ambient city sounds with a mute toggle.
+- **Save system** — your cash, progress, and unlocked missions are saved in the browser, so you can pick up right where you left off.
 
 ## How to run it
 
-No build step, no dependencies to install. The game runs entirely in the browser.
+You need a local static server (the game loads assets with `fetch`, so opening the HTML file directly from disk will not work in most browsers).
 
-**Option 1 — dev server (recommended):**
+### Option 1 — the included server
 
-```bash
-bun serve.ts
+```sh
+# From the repository root
+deno run --allow-net --allow-read serve.ts
 ```
 
-Then open the URL printed in the terminal (http://localhost:3000 by default).
+Then open <http://localhost:8000> in your browser.
 
-**Option 2 — any static file server:**
+### Option 2 — any static server
 
-```bash
-cd game
-python3 -m http.server 8000
+```sh
+# Serve the game/ directory, for example with Python:
+python3 -m http.server 8000 --directory game
 ```
 
-Then open http://localhost:8000 in your browser.
+Then open <http://localhost:8000> in your browser.
 
-**Option 3 — open the file directly:**
+### Option 3 — build / typecheck
 
-Open `game/index.html` in a modern browser (Chrome, Firefox, Safari, or Edge). Audio starts after your first click or key press, as browsers require.
+```sh
+deno check main.ts
+```
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
-| W / A / S / D or Arrow keys | Move on foot / drive |
-| Shift | Sprint on foot |
-| E | Enter / exit a vehicle |
-| Mouse | Aim |
-| Left click | Shoot (on foot) |
-| Space | Handbrake while driving |
-| R | Reload |
+| W / Up arrow | Accelerate / walk forward |
+| S / Down arrow | Brake / reverse / walk back |
+| A / D or Left / Right arrows | Steer / walk left / right |
+| Space | Handbrake (in a car) |
+| E | Enter / exit vehicle |
+| F | Interact / accept mission |
 | M | Mute / unmute audio |
 | P or Esc | Pause |
-| Enter | Confirm / advance dialogue |
+| R | Restart current mission |
 
-On mobile, on-screen touch controls appear automatically: a joystick to move and drive, and buttons to enter vehicles, shoot, and brake.
-
-## Features
-
-- **Open city** — a hand-built map of Palmera Bay: downtown streets, the beachfront boulevard, back alleys, parking lots, and the pier. Day fades into a long orange sunset as you play.
-- **Driving** — steal any parked or moving car, each with its own speed, handling, and durability. Traffic reacts to you, and crashes leave dents, smoke, and sparks.
-- **Police & wanted system** — cause trouble and the heat rises, from a single patrol car up to roadblocks and a full pursuit. Break line of sight, ditch the car, or lay low until the stars cool off.
-- **Missions** — a chain of story jobs from the crew: getaways, deliveries, pickups, and hits, plus repeatable side gigs around the city. Finish a mission to earn cash and unlock the next one.
-- **Pedestrians** — crowds that stroll, cross streets, panic, and flee when shots are fired or cars mount the sidewalk.
-- **HUD** — health, armor, cash, wanted stars, mission tracker, and a live minimap showing missions, cars, and police.
-- **Audio** — procedural engine hums, sirens, gunfire, footsteps, and a sunset radio vibe, all generated in code with no audio files.
-- **Save system** — progress, cash, unlocked missions, and best stats are saved automatically to your browser. Pick up right where you left off.
+On-screen touch controls are shown on mobile devices.
 
 ## Tips
 
-- A stolen car is a disguise: swapping vehicles is the fastest way to drop a wanted level.
-- Pedestrians remember chaos — keep it quiet near a mission pickup and the police stay away.
-- The beachfront is the fastest escape route out of downtown, but the pier is a dead end.
-- Completing side gigs between story missions is the easiest way to afford repairs and armor.
+- Lay low after a job: wanted stars fade when the police lose sight of you.
+- Faster cars make getaways easier — but they also attract more attention.
+- Watch the minimap: mission markers, police, and your current objective are all shown there.
+- Crashing into traffic raises your wanted level. Drive clean when you can afford to.
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Street](screenshots/2-street.jpg) | ![Mission](screenshots/3-mission.jpg) |
+| ![Combat](screenshots/4-combat.jpg) | |
 
 ## Project structure
 
-```
+```text
 .
-├── README.md
-├── LICENSE
-├── main.ts            # Entry point used by the make.fun harness
-├── serve.ts           # Local dev server
-├── shots.json         # Screenshot manifest
+├── main.ts            # Game entry point and bootstrap
+├── serve.ts           # Local development server
 ├── game/
-│   ├── index.html     # Game page
-│   ├── style.css      # UI and HUD styling
-│   ├── src/
-│   │   ├── main.js        # Game loop and bootstrapping
-│   │   ├── config.js      # Tuning, balance, and constants
-│   │   ├── city.js        # Map, streets, buildings, and props
-│   │   ├── player.js      # On-foot movement and actions
-│   │   ├── vehicles.js    # Cars, traffic, and driving physics
-│   │   ├── police.js      # Wanted levels, pursuit, and roadblocks
-│   │   ├── pedestrians.js # Crowd AI
-│   │   ├── missions.js    # Story missions and side gigs
-│   │   ├── hud.js         # HUD, minimap, and menus
-│   │   ├── audio.js       # Procedural sound and music
-│   │   ├── effects.js     # Particles, smoke, and screen shake
-│   │   ├── save.js        # Autosave and load
-│   │   ├── shots.js       # Screenshot capture helpers
-│   │   └── random.js      # Seeded random helpers
-│   └── vendor/
-│       └── three/         # Vendored Three.js
-├── screenshots/       # Cover, street, mission, and combat shots
+│   ├── index.html     # Game page shell
+│   ├── style.css      # Game styling and HUD
+│   ├── src/           # Game source (city, vehicles, police, missions, HUD, audio, save)
+│   └── vendor/        # Bundled third-party code
 ├── vendor/
-│   └── makefun-game.ts
-└── out/               # Build output (generated)
+│   └── makefun-game.ts # make.fun game integration
+├── screenshots/       # In-game screenshots
+├── shots.json         # Screenshot metadata
+├── out/               # Build / dossier output
+└── LICENSE            # License
 ```
 
 ## Tech
 
-- Plain JavaScript and HTML5 Canvas — no game engine, no framework.
-- Three.js (vendored) for 3D flourishes.
-- TypeScript entry (`main.ts`) and dev server (`serve.ts`) for the make.fun harness.
-- Everything runs client-side; your save never leaves your browser.
+- Written in TypeScript, rendered on HTML5 Canvas.
+- No framework, no bundler, no runtime dependencies for the game itself.
+- Save data is stored locally in the browser (`localStorage`).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-Built for the [make.fun gta6-01 bounty](https://make.fun/bounty/gta6-01) — a GTA 6-inspired game jam. Palmera Bay is a fictional city; any resemblance to real places is purely coincidental.
+See [LICENSE](LICENSE).
