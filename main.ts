@@ -11,7 +11,7 @@
 // In the grader's container MAKEFUN_OUTPUT_DIR is unset and /output is
 // used instead. The program runs twice and must write identical bytes.
 
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -20,9 +20,10 @@ import { buildDossier } from './vendor/makefun-game.ts';
 const repoRoot = fileURLToPath(new URL('.', import.meta.url));
 const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-// Start from a clean output directory so a stale run can never leak
-// old screenshots or a stale dossier into the submission.
-rmSync(outputDir, { recursive: true, force: true });
+// Never remove the output directory itself: in the grader /output is a
+// mounted volume, and removing a mount point throws (Device or resource
+// busy). The directory starts empty there, and every file below is
+// overwritten on each run, so just ensure it exists.
 mkdirSync(outputDir, { recursive: true });
 
 cpSync(join(repoRoot, 'game'), join(outputDir, 'game'), { recursive: true });
