@@ -2,113 +2,109 @@
 [![rank](https://make.fun/badge/gta6-01/hrd04-ai/gta6-01/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![reward](https://make.fun/badge/gta6-01/hrd04-ai/gta6-01/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 
-# Palmera Bay: Sunset Heat
+# Make GTA 6 — An Open-World Crime Game in the Browser
 
-A top-down open-city crime game set in Palmera Bay, a sun-baked coastal city where every street is an opportunity and every siren is a warning. Steal cars, outrun the police, take on missions from the city's fixers, and build your reputation — one sunset at a time.
+An original open-world crime game in the spirit of GTA 6, built as a free,
+open-source browser game. Explore a living city on foot or by car, steal
+vehicles, dodge the police, take on missions, and climb the ranks of the
+underworld — all inside a desktop browser, with no install and no network
+connection needed.
 
-![Cover](screenshots/1-cover.jpg)
+This entry was built for the make.fun bounty — see the competition page at
+https://make.fun/bounty/gta6-01.
 
-## What is it?
+## Play it
 
-Palmera Bay: Sunset Heat is a 2D top-down open-world game inspired by classic GTA-style gameplay. You are free to roam the city on foot or behind the wheel: cruise the boulevards, grab any parked car, dodge traffic, and complete missions to earn cash and respect. The hotter your wanted level burns, the harder the Palmera Bay Police Department comes after you.
+The game is a set of static files under `game/`. It runs fully **offline** in a
+desktop browser: every library is vendored under `game/`, and the game makes no
+network requests at all.
 
-The game runs entirely in the browser — no install, no account, no build step.
+1. Serve the `game/` directory with any static file server (for example
+   `npx serve game`, `python3 -m http.server` from inside `game/`, or your
+   favourite equivalent).
+2. Open `index.html` in a desktop browser.
+3. Alternatively, open `game/index.html` directly from disk.
 
-## Features
+Keyboard and mouse are all you need: move, drive, fight, and navigate the menus
+with standard keys, and use the mouse for aiming and menu interaction.
 
-- **Open city** — a living map of streets, intersections, beaches, and back alleys, all rendered top-down with a warm sunset palette.
-- **Driving** — steal any car on the street, accelerate, brake, and drift around corners. Every vehicle handles differently, from beat-up sedans to fast sports cars.
-- **On-foot action** — walk the sidewalks, run from trouble, and hop in and out of cars whenever you like.
-- **Police & wanted system** — cause chaos and your wanted level climbs. Patrol cars give chase, roadblocks appear, and the heat only cools down when you lay low.
-- **Missions** — pick up jobs from fixers around the city: getaways, deliveries, chases, and timed runs. Finish them to earn cash and unlock harder work.
-- **Pedestrians & traffic** — the city is alive. Pedestrians stroll the sidewalks, traffic flows through the streets, and the world reacts to what you do.
-- **HUD** — speed, cash, wanted stars, mission tracker, and a minimap keep you oriented at a glance.
-- **Audio** — engine hums, sirens, and ambient city sounds with a mute toggle.
-- **Save system** — your cash, progress, and unlocked missions are saved in the browser, so you can pick up right where you left off.
+## What is in the game
 
-## How to run it
-
-You need a local static server (the game loads assets with `fetch`, so opening the HTML file directly from disk will not work in most browsers).
-
-### Option 1 — the included server
-
-```sh
-# From the repository root
-deno run --allow-net --allow-read serve.ts
-```
-
-Then open <http://localhost:8000> in your browser.
-
-### Option 2 — any static server
-
-```sh
-# Serve the game/ directory, for example with Python:
-python3 -m http.server 8000 --directory game
-```
-
-Then open <http://localhost:8000> in your browser.
-
-### Option 3 — build / typecheck
-
-```sh
-deno check main.ts
-```
+- **A city to explore** — drive and walk through a living city with traffic,
+  pedestrians, and places worth visiting.
+- **Cars worth stealing** — hop into vehicles around the city, drive them,
+  and make your getaway.
+- **A wanted system** — cause trouble and the police come after you. Lose the
+  heat or outrun the chase.
+- **Missions and a story** — a story arc with missions that take you across the
+  city and deeper into the underworld.
+- **Combat** — fists and more, on foot and from behind the wheel.
+- **HUD with a minimap** — health, wanted level, and a live minimap keep you
+  oriented at a glance.
+- **Start and save** — start a fresh run or pick up where you left off.
+- **Sound and polish** — original sound effects and music, plus the small
+  touches (effects, menus, feedback) that make a city feel alive.
 
 ## Controls
 
-| Key | Action |
+The game is played with keyboard and mouse in a desktop browser.
+
+| Action | Control |
 | --- | --- |
-| W / Up arrow | Accelerate / walk forward |
-| S / Down arrow | Brake / reverse / walk back |
-| A / D or Left / Right arrows | Steer / walk left / right |
-| Space | Handbrake (in a car) |
-| E | Enter / exit vehicle |
-| F | Interact / accept mission |
-| M | Mute / unmute audio |
-| P or Esc | Pause |
-| R | Restart current mission |
+| Move on foot | WASD / arrow keys |
+| Enter / exit a vehicle | E |
+| Drive | WASD / arrow keys |
+| Sprint | Shift |
+| Attack / aim | Mouse |
+| Interact | E |
+| Pause / menu | Esc |
 
-On-screen touch controls are shown on mobile devices.
-
-## Tips
-
-- Lay low after a job: wanted stars fade when the police lose sight of you.
-- Faster cars make getaways easier — but they also attract more attention.
-- Watch the minimap: mission markers, police, and your current objective are all shown there.
-- Crashing into traffic raises your wanted level. Drive clean when you can afford to.
-
-## Screenshots
-
-| | |
-| --- | --- |
-| ![Street](screenshots/2-street.jpg) | ![Mission](screenshots/3-mission.jpg) |
-| ![Combat](screenshots/4-combat.jpg) | |
+The in-game start screen and on-screen hints explain the exact keys before you
+play, so the table above is a quick reference — the game itself is the final
+word. A desktop browser with a real keyboard and mouse is recommended; touch
+devices are not supported.
 
 ## Project structure
 
 ```text
-.
-├── main.ts            # Game entry point and bootstrap
-├── serve.ts           # Local development server
-├── game/
-│   ├── index.html     # Game page shell
-│   ├── style.css      # Game styling and HUD
-│   ├── src/           # Game source (city, vehicles, police, missions, HUD, audio, save)
-│   └── vendor/        # Bundled third-party code
-├── vendor/
-│   └── makefun-game.ts # make.fun game integration
-├── screenshots/       # In-game screenshots
-├── shots.json         # Screenshot metadata
-├── out/               # Build / dossier output
-└── LICENSE            # License
+game/
+  index.html        # entry point — open this in a desktop browser
+  src/
+    audio.ts        # original sound and music
+    city.ts         # the city, traffic and pedestrians
+    config.ts       # tuning and configuration
+    effects.ts      # visual effects and polish
+    hud.ts          # HUD and minimap
+    main.ts         # game loop and wiring
+    missions.ts     # missions and story
+    ...             # more gameplay modules
+screenshots/        # gameplay screenshots
+main.ts             # Node 22 program: hands in game/ + screenshots/ and writes dossier.json
+serve.ts            # static file server helper
+vendor/
+  makefun-game.ts   # vendored make.fun game support code
+LICENSE             # MIT
 ```
 
-## Tech
+## Development
 
-- Written in TypeScript, rendered on HTML5 Canvas.
-- No framework, no bundler, no runtime dependencies for the game itself.
-- Save data is stored locally in the browser (`localStorage`).
+`main.ts` is a Node 22 program (run it with `node` / `tsx` as appropriate for
+your setup). It gathers the game and its screenshots and writes the submission
+dossier:
+
+- hands in the `game/` directory (the playable game),
+- hands in the `screenshots/` directory,
+- writes `dossier.json` describing the submission.
+
+`serve.ts` provides a simple static server for local playtesting.
+
+## Originality
+
+Everything in this project is the entrant's own work: the city, the characters,
+the vehicles, the names, the story, the art, the sound, and the music. It is an
+original game inspired by the open-world crime genre — no Rockstar Games name,
+logo, character, map, or asset is used anywhere in it.
 
 ## License
 
-See [LICENSE](LICENSE).
+MIT — see `LICENSE` for the full text.
